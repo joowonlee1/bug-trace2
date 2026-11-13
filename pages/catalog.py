@@ -7,7 +7,9 @@
 import pandas as pd               # 표 형태의 데이터를 다루는 라이브러리 (그래프용)
 import streamlit as st
 
-from common import CATEGORIES, case_card, load_cases, open_case, page_header, search_cases
+from common import (
+    CATEGORIES, CATEGORY_ICONS, case_card, load_cases, open_case, page_header, search_cases,
+)
 
 CARDS_PER_ROW = 3                 # 한 줄에 보여 줄 카드 수
 
@@ -29,6 +31,11 @@ def save_filters():
     st.session_state["saved_category"] = st.session_state["catalog_category"]
 
 
+def category_label(category):
+    """분류 버튼에 아이콘을 붙인다. 예) "입력" → ":material/keyboard: 입력" """
+    return f":material/{CATEGORY_ICONS[category]}: {category}"
+
+
 def show_filters():
     """검색창과 분류 선택 버튼을 보여 준다."""
     # key: 입력값이 st.session_state["catalog_keyword"]에 저장된다.
@@ -36,13 +43,14 @@ def show_filters():
     st.text_input(
         "검색",
         key="catalog_keyword",
-        placeholder="예) 한글, 엑셀, 사진, 인코딩, 캐시",
+        placeholder="🔍 오류 제목이나 키워드를 검색하세요. 예) 한글, 엑셀, 사진",
         on_change=save_filters,
     )
     st.radio(
         "분류",
         ["전체"] + CATEGORIES,       # 맨 앞에 "전체"를 붙인 분류 목록
         key="catalog_category",
+        format_func=category_label,   # 화면에는 아이콘이 붙은 이름으로 보여 준다
         horizontal=True,              # 버튼을 가로로 나열
         on_change=save_filters,
     )
@@ -65,7 +73,7 @@ def show_case_cards(results, total_count):
             with column:
                 with st.container(border=True):
                     case_card(case)
-                    if st.button("원인 해부실에서 보기 →", key=f"catalog_open_{case['id']}", use_container_width=True):
+                    if st.button("원인 추적하기 →", key=f"catalog_open_{case['id']}", width="stretch"):
                         open_case(case["id"])
 
 
@@ -84,14 +92,15 @@ def count_by_category(cases):
 def show_category_chart(cases):
     """분류별 오류 수를 막대그래프로 보여 준다. (데이터 시각화)"""
     st.markdown("### 분류별 오류 수")
-    # index: 막대 아래에 쓸 이름(분류), 값: 막대 높이(오류 수)
+    # index: 막대 옆에 쓸 이름(분류), 값: 막대 길이(오류 수)
     chart_data = pd.DataFrame({"오류 수": count_by_category(cases)}, index=CATEGORIES)
-    st.bar_chart(chart_data, color="#B7E66B")    # 막대 색: 라임
+    # horizontal=True: 막대를 가로로 눕혀서 분류 이름을 똑바로 읽을 수 있게 한다.
+    st.bar_chart(chart_data, color="#B7E66B", horizontal=True)
 
 
 # ----- 실제 실행 순서 -----
 all_cases = load_cases()
-page_header("catalog", "오류 도감", "궁금한 현상을 검색하거나 분류를 골라 찾아보세요.")
+page_header("menu_book", "오류 도감", "일상에서 마주치는 12가지 디지털 오류를 살펴봅니다.")
 restore_filters()                       # 1) 저장해 둔 검색 조건 되살리기
 show_filters()                          # 2) 검색창 + 분류 버튼
 

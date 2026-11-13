@@ -41,7 +41,7 @@ def choose_pair(left_id, right_id):
 
 
 def show_selectors(cases):
-    """왼쪽·오른쪽에 비교할 오류를 고르는 선택 상자를 보여 준다."""
+    """비교할 두 오류를 고르는 선택 상자를 보여 준다."""
     restore_choices()
     case_ids = [case["id"] for case in cases]
 
@@ -51,9 +51,9 @@ def show_selectors(cases):
 
     left_column, right_column = st.columns(2)
     with left_column:
-        st.selectbox("오류 A", case_ids, key="compare_left", format_func=label, on_change=save_choices)
+        st.selectbox("비교할 사례 A", case_ids, key="compare_left", format_func=label, on_change=save_choices)
     with right_column:
-        st.selectbox("오류 B", case_ids, key="compare_right", format_func=label, on_change=save_choices)
+        st.selectbox("비교할 사례 B", case_ids, key="compare_right", format_func=label, on_change=save_choices)
 
 
 # -------------------------------------------------------------
@@ -64,7 +64,7 @@ def show_case_column(case, side):
     """오류 하나의 핵심 정보를 한 칸에 세로로 보여 준다."""
     render_html(f"""
         <div>
-            <span class="bt-badge bt-badge-on">CASE {case['id']:02d}</span>
+            <span class="bt-badge bt-badge-on">BUG-{case['id']:03d}</span>
             <span class="bt-badge">{escape(case['category'])}</span>
             <span class="bt-badge">{escape(case['cause_type'])}</span>
         </div>
@@ -74,12 +74,12 @@ def show_case_column(case, side):
     st.markdown(f"**증상**  \n{case['symptom']}")           # 줄 끝 공백 2칸 + \n = 줄 바꿈
     render_html(f"""
         <div class="bt-box bt-key">
-            <div class="bt-box-label">KEY POINT · 핵심</div>
+            <div class="bt-box-label">💡 KEY POINT · 핵심 원리</div>
             <div>{escape(case['key_point'])}</div>
         </div>
     """)
     # side: 버튼 이름이 겹치지 않도록 "left" 또는 "right"를 붙인다.
-    if st.button("원인 해부실에서 자세히 보기 →", key=f"compare_open_{side}", use_container_width=True):
+    if st.button("원인 추적하기 →", key=f"compare_open_{side}", width="stretch"):
         open_case(case["id"])
 
 
@@ -104,8 +104,43 @@ def find_common_keywords(left_case, right_case):
     return sorted(set(left_case["keywords"]) & set(right_case["keywords"]))
 
 
+def compare_cases(left_case, right_case):
+    """두 오류를 비교해서 (공통점 목록, 차이점 목록)을 만든다."""
+    same = []        # 공통점
+    different = []   # 차이점
+
+    # (1) 원인 유형
+    if left_case["cause_type"] == right_case["cause_type"]:
+        cause = left_case["cause_type"]
+        same.append(f"두 오류 모두 **'{cause}'** 유형이에요. {CAUSE_TYPES[cause]}.")
+    else:
+        different.append(
+            f"원인 유형이 달라요. A는 **{left_case['cause_type']}**, B는 **{right_case['cause_type']}**이에요."
+        )
+
+    # (2) 분류
+    if left_case["category"] == right_case["category"]:
+        same.append(f"두 오류 모두 **{left_case['category']}** 분류에 속해요.")
+    else:
+        different.append(f"A는 **{left_case['category']}** 분류, B는 **{right_case['category']}** 분류예요.")
+
+    # (3) 겹치는 키워드
+    common_keywords = find_common_keywords(left_case, right_case)
+    if common_keywords:
+        same.append(f"겹치는 키워드: **{', '.join(common_keywords)}**")
+
+    # (4) 서로 관련 사례로 연결되어 있는지
+    if right_case["id"] in left_case["related"] or left_case["id"] in right_case["related"]:
+        same.append("두 오류는 서로 **관련 사례**로 연결되어 있어요.")
+
+    # (5) 사용하는 기술은 언제나 차이점에 넣는다
+    different.append(f"관련 기술: A는 **{left_case['tech']}**, B는 **{right_case['tech']}**")
+
+    return same, different
+
+
 def show_analysis(left_case, right_case):
-    """원인 유형, 분류, 키워드를 비교해서 공통점과 차이점을 알려 준다."""
+    """공통점과 차이점을 탭으로 나누어 체크 목록으로 보여 준다."""
     st.markdown("### 🧬 비교 분석")
 
     # 같은 오류를 두 번 고른 경우
@@ -113,33 +148,16 @@ def show_analysis(left_case, right_case):
         st.warning("같은 오류를 골랐어요. 서로 다른 두 오류를 골라 보세요.")
         return
 
-    # (1) 원인 유형 비교
-    if left_case["cause_type"] == right_case["cause_type"]:
-        cause = left_case["cause_type"]
-        st.success(f"**공통점: 두 오류 모두 '{cause}' 유형이에요.**  \n{CAUSE_TYPES[cause]}.")
-    else:
-        st.info(
-            f"**차이점: 원인 유형이 달라요.**  \n"
-            f"- 오류 A는 **{left_case['cause_type']}**: {CAUSE_TYPES[left_case['cause_type']]}  \n"
-            f"- 오류 B는 **{right_case['cause_type']}**: {CAUSE_TYPES[right_case['cause_type']]}"
-        )
-
-    # (2) 분류 비교
-    if left_case["category"] == right_case["category"]:
-        st.markdown(f"- 두 오류 모두 **{left_case['category']}** 분류에 속해요.")
-    else:
-        st.markdown(f"- 오류 A는 **{left_case['category']}**, 오류 B는 **{right_case['category']}** 분류예요.")
-
-    # (3) 겹치는 키워드
-    common_keywords = find_common_keywords(left_case, right_case)
-    if common_keywords:
-        st.markdown(f"- 겹치는 키워드: **{', '.join(common_keywords)}**")
-    else:
-        st.markdown("- 겹치는 키워드는 없어요.")
-
-    # (4) 서로 관련 사례로 연결되어 있는지
-    if right_case["id"] in left_case["related"] or left_case["id"] in right_case["related"]:
-        st.markdown("- 두 오류는 서로 **관련 사례**로 연결되어 있어요.")
+    same, different = compare_cases(left_case, right_case)
+    same_tab, different_tab = st.tabs([f"공통점 ({len(same)})", f"차이점 ({len(different)})"])
+    with same_tab:
+        if not same:
+            st.markdown("- 뚜렷한 공통점이 없어요. 원인이 서로 다른 오류예요.")
+        for item in same:
+            st.markdown(f"✅ {item}")
+    with different_tab:
+        for item in different:
+            st.markdown(f"↔️ {item}")
 
 
 # -------------------------------------------------------------
@@ -178,18 +196,19 @@ def show_cause_groups(cases):
                         key=f"pair_{cause}",
                         on_click=choose_pair,
                         args=(group_cases[0]["id"], group_cases[1]["id"]),
+                        icon=":material/balance:",
                     )
 
 
 # ----- 실제 실행 순서 -----
 all_cases = load_cases()
-page_header("compare", "오류 비교실", "서로 다른 두 오류의 원인과 공통점을 나란히 비교해요.")
+page_header("compare_arrows", "오류 비교실", "두 오류의 공통점과 차이점을 비교합니다.")
 show_selectors(all_cases)                                          # 1) 두 오류 고르기
 
 case_a = find_case(all_cases, st.session_state["compare_left"])    # 왼쪽 오류 데이터
 case_b = find_case(all_cases, st.session_state["compare_right"])   # 오른쪽 오류 데이터
 
-show_side_by_side(case_a, case_b)        # 2) 나란히 비교
-show_analysis(case_a, case_b)            # 3) 공통점·차이점 분석
+show_analysis(case_a, case_b)            # 2) 공통점·차이점 분석 (탭)
+show_side_by_side(case_a, case_b)        # 3) 나란히 비교
 st.divider()
 show_cause_groups(all_cases)             # 4) 원인 유형별 묶음

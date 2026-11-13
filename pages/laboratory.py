@@ -46,16 +46,21 @@ def save_lab():
 
 
 def show_lab_selector():
-    """실험을 고르는 버튼을 보여 준다."""
+    """실험을 고르는 선택 상자를 보여 준다."""
     restore_lab()
-    st.radio(
-        "실험 고르기",
+    st.selectbox(
+        "실험 선택",
         list(LABS.keys()),
         key="lab_topic",
         format_func=lambda lab: LABS[lab][0],     # 이름표 대신 화면용 이름을 보여 준다
-        horizontal=True,
         on_change=save_lab,
     )
+
+
+def run_button(key):
+    """모든 실험에서 함께 쓰는 '실험 실행하기' 버튼. 누르면 True를 돌려준다."""
+    # icon: 재생(▶) 아이콘, type="primary": 라임색 버튼, width="stretch": 칸 너비만큼 넓게
+    return st.button("실험 실행하기", key=key, type="primary", icon=":material/play_arrow:", width="stretch")
 
 
 def show_case_link(lab):
@@ -81,7 +86,7 @@ def run_float_lab():
     first_text = first_column.text_input("첫 번째 수", "0.1", key="float_first")
     second_text = second_column.text_input("두 번째 수", "0.2", key="float_second")
 
-    if st.button("계산하기", key="float_run", type="primary"):
+    if run_button("float_run"):
         show_float_result(first_text.strip(), second_text.strip())
 
     show_float_error_chart()
@@ -158,7 +163,7 @@ def run_sort_lab():
     st.caption("쉼표(,)로 구분해서 입력하세요. 예) 사진1, 사진10, 사진2")
     input_text = st.text_input("정렬할 목록", "10, 2, 1, 20, 3", key="sort_input")
 
-    if st.button("정렬하기", key="sort_run", type="primary"):
+    if run_button("sort_run"):
         # 쉼표로 나누고, 앞뒤 공백을 지우고, 빈 항목은 뺀다.
         items = [item.strip() for item in input_text.split(",") if item.strip()]
         if not items:
@@ -203,7 +208,7 @@ def run_unicode_lab():
     st.markdown("#### 🧪 똑같이 보이는데 왜 다른 글자일까?")
     input_text = st.text_input("한글을 입력하세요", "한글", key="unicode_input")
 
-    if st.button("쪼개 보기", key="unicode_run", type="primary"):
+    if run_button("unicode_run"):
         if not input_text:
             st.error("글자를 입력해 주세요.")
             return
@@ -214,10 +219,10 @@ def run_unicode_lab():
         nfc_column, nfd_column = st.columns(2)
         with nfc_column:
             st.markdown(f"**NFC (완성형: 글자 단위)** · 글자 수 {len(nfc_text)}")
-            st.dataframe(make_code_table(nfc_text), hide_index=True, use_container_width=True)
+            st.dataframe(make_code_table(nfc_text), hide_index=True, width="stretch")
         with nfd_column:
             st.markdown(f"**NFD (조합형: 자음·모음 조각 단위)** · 글자 수 {len(nfd_text)}")
-            st.dataframe(make_code_table(nfd_text), hide_index=True, use_container_width=True)
+            st.dataframe(make_code_table(nfd_text), hide_index=True, width="stretch")
 
         # == 로 비교하면 컴퓨터가 두 글자를 같은 글자로 보는지 알 수 있다.
         if nfc_text == nfd_text:
@@ -235,7 +240,7 @@ def run_encoding_lab():
     st.markdown("#### 🧪 글자는 왜 �로 깨질까?")
     input_text = st.text_input("글자를 입력하세요", "한글", key="encoding_input")
 
-    if st.button("바이트로 바꾸기", key="encoding_run", type="primary"):
+    if run_button("encoding_run"):
         if not input_text:
             st.error("글자를 입력해 주세요.")
             return
@@ -270,7 +275,7 @@ def run_timezone_lab():
     korea_date = date_column.date_input("한국 날짜", date(2026, 11, 12), key="tz_date")
     korea_clock = time_column.time_input("한국 시각", time(8, 0), key="tz_time")
 
-    if st.button("시간대 바꾸기", key="tz_run", type="primary"):
+    if run_button("tz_run"):
         # 날짜 + 시각 + 한국 시간대를 합쳐서 '한국 기준 시간'을 만든다.
         korea_moment = datetime.combine(korea_date, korea_clock, tzinfo=KOREA_TIME)
         # astimezone(): 같은 순간을 다른 시간대 기준으로 바꾼다.
@@ -296,9 +301,8 @@ def run_timezone_lab():
 
 
 # ----- 실제 실행 순서 -----
-page_header("laboratory", "현상 실험실", "설명한 원리를 실제 계산 결과로 확인해요.")
+page_header("science", "현상 실험실", "직접 실행하며 컴퓨터의 처리 원리를 확인합니다.")
 show_lab_selector()                       # 1) 실험 고르기
-st.divider()
 
 selected_lab = st.session_state["lab_topic"]
 
@@ -310,7 +314,8 @@ lab_functions = {
     "encoding": run_encoding_lab,
     "timezone": run_timezone_lab,
 }
-lab_functions[selected_lab]()
+with st.container(border=True):           # 실험 내용을 테두리 상자(실험대) 안에 담는다
+    lab_functions[selected_lab]()
 
 st.divider()
 show_case_link(selected_lab)              # 3) 관련 오류 설명으로 가기

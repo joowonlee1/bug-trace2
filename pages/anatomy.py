@@ -8,7 +8,7 @@ from html import escape           # 글자 속 <, > 기호를 안전하게 바�
 
 import streamlit as st
 
-from common import case_label, find_case, load_cases, page_header, render_html
+from common import case_label, find_case, icon, load_cases, page_header, render_html
 
 
 # -------------------------------------------------------------
@@ -42,7 +42,7 @@ def show_case_selector(cases):
 
     # format_func: 선택지에 번호 대신 "CASE 01 · 제목"처럼 보여 준다.
     st.selectbox(
-        "분석할 오류",
+        "사례 선택",
         case_ids,
         key="anatomy_case",
         format_func=lambda case_id: case_label(find_case(cases, case_id)),
@@ -58,7 +58,7 @@ def show_title(case):
     """번호, 분류, 기술, 원인 유형 이름표와 제목, 한 줄 요약을 보여 준다."""
     render_html(f"""
         <div style="margin-top: 14px;">
-            <span class="bt-badge bt-badge-on">CASE {case['id']:02d}</span>
+            <span class="bt-badge bt-badge-on">BUG-{case['id']:03d}</span>
             <span class="bt-badge">분류 · {escape(case['category'])}</span>
             <span class="bt-badge">기술 · {escape(case['tech'])}</span>
             <span class="bt-badge">원인 유형 · {escape(case['cause_type'])}</span>
@@ -106,6 +106,35 @@ def show_observation(case):
     """)
 
 
+def show_flow(case):
+    """오류가 생기는 흐름을 '입력 → 처리 → 출력' 세 칸 그림으로 보여 준다."""
+    st.markdown("### 🧭 처리 과정")
+    flow = case["flow"]       # {"input": "...", "process": "...", "output": "..."}
+    # 화살표(→)로 세 칸을 이어서 컴퓨터 안에서 데이터가 지나가는 길을 표현한다.
+    # 출력 칸(bt-flow-out)은 빨간색으로 그려서 '이상한 결과'임을 강조한다.
+    render_html(f"""
+        <div class="bt-flow">
+            <div class="bt-flow-box">
+                {icon("keyboard")}
+                <div class="bt-flow-name">입력</div>
+                <div class="bt-flow-text">{escape(flow['input'])}</div>
+            </div>
+            <div class="bt-flow-arrow">→</div>
+            <div class="bt-flow-box">
+                {icon("settings")}
+                <div class="bt-flow-name">처리</div>
+                <div class="bt-flow-text">{escape(flow['process'])}</div>
+            </div>
+            <div class="bt-flow-arrow">→</div>
+            <div class="bt-flow-box bt-flow-out">
+                {icon("description")}
+                <div class="bt-flow-name">출력</div>
+                <div class="bt-flow-text">{escape(flow['output'])}</div>
+            </div>
+        </div>
+    """)
+
+
 def basis_badge(basis):
     """단계마다 붙일 근거 이름표를 만든다. 확인 = 공식 문서로 확인, 추정 = 아직 확인되지 않은 설명"""
     if basis == "확인":
@@ -115,7 +144,7 @@ def basis_badge(basis):
 
 def show_steps(case):
     """오류가 생기는 과정을 01 → 02 → 03 순서의 흐름으로 보여 준다."""
-    st.markdown("### ⚙️ 왜 그럴까: 발생 과정")
+    st.markdown("### ⚙️ 원인 추적: 단계별 기록")
     st.caption("📘 문서로 확인 = 아래 출처의 공식 문서로 확인한 내용 · 🔎 추정 = 공식 설명이 없어 추정한 내용")
     steps = case["steps"]
     # enumerate(목록, start=1): 번호(1, 2, 3...)와 단계 내용을 함께 꺼낸다.
@@ -123,7 +152,7 @@ def show_steps(case):
     for step_number, step in enumerate(steps, start=1):
         render_html(f"""
             <div class="bt-box bt-step">
-                <div class="bt-step-no">{step_number:02d}</div>
+                <div class="bt-step-no">#{step_number:02d}</div>
                 <div class="bt-step-text">{basis_badge(step['basis'])}<br>{escape(step['text'])}</div>
             </div>
         """)
@@ -136,7 +165,7 @@ def show_key_point(case):
     """오류의 핵심 원리를 한 문장으로 정리해서 보여 준다."""
     render_html(f"""
         <div class="bt-box bt-key">
-            <div class="bt-box-label">KEY POINT · 핵심</div>
+            <div class="bt-box-label">💡 KEY POINT · 핵심 원리</div>
             <div>{escape(case['key_point'])}</div>
         </div>
     """)
@@ -194,13 +223,13 @@ def show_related_cases(cases, case):
                 key=f"related_{related_id}",
                 on_click=move_to_case,
                 args=(related_id,),
-                use_container_width=True,
+                width="stretch",
             )
 
 
 # ----- 실제 실행 순서 -----
 all_cases = load_cases()
-page_header("anatomy", "원인 해부실", "오류가 생기는 과정을 한 단계씩 해부해요.")
+page_header("layers", "원인 해부실", "오류가 발생하는 내부 처리 과정을 한 단계씩 추적합니다.")
 show_case_selector(all_cases)                                    # 1) 오류 고르기
 
 current_case = find_case(all_cases, st.session_state["anatomy_case"])  # 고른 오류 데이터
@@ -209,7 +238,8 @@ show_title(current_case)                 # 2) 제목과 요약
 show_symptom(current_case)               # 3) 증상
 show_observation(current_case)           # 4) 직접 관찰 (있는 경우만)
 show_expected_vs_actual(current_case)    # 5) 정상 vs 실제
-show_steps(current_case)                 # 6) 발생 과정 (확인 / 추정 표시)
+show_flow(current_case)                  # 5-1) 처리 과정 그림 (입력 → 처리 → 출력)
+show_steps(current_case)                 # 6) 단계별 추적 기록 (확인 / 추정 표시)
 show_key_point(current_case)             # 7) 핵심 정리
 show_where(current_case)                 # 8) 자주 생기는 곳
 show_fixes(current_case)                 # 9) 해결 방법

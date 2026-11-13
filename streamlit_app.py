@@ -1,12 +1,17 @@
 # =============================================================
 # streamlit_app.py  (시작 파일)
 # BUG TRACE 웹앱이 실행되면 가장 먼저 이 파일이 실행된다.
-# 하는 일: 기본 설정 → 공통 디자인 적용 → 페이지 목록 등록 → 선택한 페이지 실행
+# 하는 일: 기본 설정 → 공통 디자인 적용 → 로고 → 위쪽 메뉴 바 만들기 → 선택한 페이지 실행
 # =============================================================
+
+from pathlib import Path
 
 import streamlit as st
 
 from common import apply_style   # 공통 디자인(CSS)을 넣는 함수
+
+# 로고 그림 파일 위치 (">_ BUG TRACE" 글자 그림)
+LOGO_PATH = Path(__file__).parent / "assets" / "logo.svg"
 
 
 def setup_page():
@@ -24,24 +29,20 @@ def create_pages():
     # st.Page(파일 경로, title=메뉴 이름, icon=메뉴 아이콘)
     # default=True → 처음 접속했을 때 보여 줄 페이지
     return [
-        st.Page("pages/home.py", title="홈", icon=":material/terminal:", default=True),
+        st.Page("pages/home.py", title="홈", icon=":material/home:", default=True),
         st.Page("pages/catalog.py", title="오류 도감", icon=":material/menu_book:"),
-        st.Page("pages/anatomy.py", title="원인 해부실", icon=":material/biotech:"),
+        st.Page("pages/anatomy.py", title="원인 해부실", icon=":material/layers:"),
         st.Page("pages/laboratory.py", title="현상 실험실", icon=":material/science:"),
         st.Page("pages/compare.py", title="오류 비교실", icon=":material/compare_arrows:"),
     ]
 
 
-def show_sidebar_info():
-    """왼쪽 사이드바에 앱 이름과 소개 문구를 보여 준다."""
-    with st.sidebar:
-        st.markdown("### 🐞 BUG TRACE")
-        st.caption("컴퓨터는 왜 이런 행동을 할까?")
-
-
 # ----- 실제 실행 순서 -----
 setup_page()                              # 1) 기본 설정
 apply_style()                             # 2) 모든 페이지에 공통 디자인 적용
-show_sidebar_info()                       # 3) 사이드바 소개 문구
-current_page = st.navigation(create_pages())  # 4) 메뉴를 만들고, 사용자가 고른 페이지를 받는다
+st.logo(str(LOGO_PATH), size="large")     # 3) 왼쪽 위 로고
+
+# 4) 메뉴를 화면 위쪽(position="top")에 가로로 만든다.
+#    좁은 화면(휴대폰)에서는 자동으로 ☰ 메뉴 버튼으로 바뀐다.
+current_page = st.navigation(create_pages(), position="top")
 current_page.run()                        # 5) 고른 페이지의 코드를 실행한다
