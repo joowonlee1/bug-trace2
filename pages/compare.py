@@ -10,9 +10,10 @@ import streamlit as st
 
 from common import CAUSE_TYPES, case_label, crt_frame, find_case, load_cases, open_case, page_banner, render_html
 
-# 처음 들어왔을 때 비교할 두 오류 (같은 '상태 불일치' 유형인 CASE 01과 CASE 06)
+# 처음 들어왔을 때 비교할 두 오류: 같은 '표현의 한계' 유형인 BUG-001(정수)과 BUG-002(실수)
+# → "정수에서 배운 비트 표현이 실수에서는 어떻게 될까?"라는 탐구 출발점을 바로 비교한다
 DEFAULT_LEFT_ID = 1
-DEFAULT_RIGHT_ID = 6
+DEFAULT_RIGHT_ID = 2
 
 
 # -------------------------------------------------------------
@@ -164,7 +165,7 @@ def show_analysis(left_case, right_case):
 # -------------------------------------------------------------
 
 def group_by_cause(cases):
-    """원인 유형마다 해당하는 오류들을 묶는다. 예) {"상태 불일치": [오류1, 오류6], ...}"""
+    """원인 유형마다 해당하는 오류들을 묶는다. 예) {"표현의 한계": [오류1, 오류2], ...}"""
     groups = {}
     for cause in CAUSE_TYPES:
         groups[cause] = []

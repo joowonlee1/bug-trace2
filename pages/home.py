@@ -108,7 +108,7 @@ def show_intro():
     render_html("""
         <div class="home-intro">
             <div class="home-intro-main">컴퓨터에서 일어나는 신기하고 이해하기 어려운 오류의<br>원인과 작동 원리를 분석하는 디지털 오류 연구소</div>
-            <div class="home-intro-sub">12가지 오류를 공식 문서를 근거로 추적하고, 직접 계산해서 확인해요.</div>
+            <div class="home-intro-sub">5가지 오류를 공식 문서를 근거로 깊이 추적하고, 직접 계산해서 확인해요.</div>
             <div class="home-chips"><span>IME 조합 오류</span><span>부동소수점 오차</span><span>문자 인코딩 불일치</span></div>
         </div>
     """)

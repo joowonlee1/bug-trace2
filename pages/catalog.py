@@ -8,7 +8,7 @@ import streamlit as st
 
 from common import CATEGORIES, CATEGORY_ICONS, case_card, crt_frame, load_cases, open_case, page_banner, search_cases
 
-CARDS_PER_ROW = 4                 # 한 줄에 보여 줄 카드 수 (한 화면에 많이 보이도록 4개)
+CARDS_PER_ROW = 5                 # 한 줄에 보여 줄 카드 수 (사례 5개가 한 줄에 다 보이도록)
 
 
 # -------------------------------------------------------------
@@ -43,7 +43,7 @@ def show_filters():
     st.text_input(
         "검색",
         key="catalog_keyword",
-        placeholder="🔍 오류 이름이나 키워드를 입력하세요. 예) 한글, 엑셀, 사진, 캐시",
+        placeholder="🔍 오류 이름이나 키워드를 입력하세요. 예) 2의 보수, 0.1, 인코딩, 한글",
         on_change=save_filters,
         label_visibility="collapsed",   # "검색" 글자는 숨겨서 공간을 아낀다
     )
@@ -88,7 +88,7 @@ def show_case_cards(results):
 all_cases = load_cases()
 
 with crt_frame("pages/catalog.py", "CATALOG"):
-    page_banner("menu_book", "ERROR CATALOG", "오류 도감", "일상에서 마주치는 12가지 디지털 오류를 검색하고 분류별로 살펴봅니다.")
+    page_banner("menu_book", "ERROR CATALOG", "오류 도감", f"일상에서 마주치는 {len(all_cases)}가지 디지털 오류를 검색하고 분류별로 살펴봅니다.")   # len(): 사례 개수를 세어서 넣는다
     restore_filters()                    # 1) 저장해 둔 검색 조건 되살리기
     show_filters()                       # 2) 검색창 + 분류 버튼
 

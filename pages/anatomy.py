@@ -39,7 +39,7 @@ def move_to_case(case_id):
 
 def show_case_selector(cases):
     """분석할 오류를 고르는 선택 상자를 보여 준다."""
-    case_ids = [case["id"] for case in cases]   # [1, 2, 3, ..., 12]
+    case_ids = [case["id"] for case in cases]   # [1, 2, 3, 4, 5]
     restore_selected_case(case_ids)
     # format_func: 선택지에 번호 대신 "BUG-001 · 제목"처럼 보여 준다.
     st.selectbox(
