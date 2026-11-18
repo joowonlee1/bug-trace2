@@ -535,7 +535,8 @@ def apply_style():
         .cat-title { font-family: 'Noto Sans KR', sans-serif; font-weight: 800; color: var(--ink); font-size: 1.3rem; margin: 6px 0 2px; }
         .cat-summary { font-size: 1rem; line-height: 1.7; color: var(--text); margin: 4px 0 8px; }
         .cat-terms { display: flex; flex-wrap: wrap; gap: 6px; }
-        .cat-terms span { font-size: 0.9rem; background: var(--lime-soft); border: 2px solid var(--ink); padding: 2px 8px; color: var(--ink); }
+        .cat-terms span { font-size: 0.9rem; background: var(--lime-soft); border: 2px solid var(--ink); padding: 2px 8px; color: var(--ink); cursor: help; }   /* cursor: help = 마우스 모양이 물음표로 바뀌어 설명이 있음을 알려 준다 */
+        .cat-terms span:hover { background: var(--lime); }
         .cat-terms b { font-family: 'Galmuri11', sans-serif; }
         .cat-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 12px; font-family: 'Galmuri11', sans-serif; color: var(--ink); }
         .cat-flow span { background: var(--paper); border: 2px solid var(--ink); padding: 3px 10px; font-weight: 700; }
