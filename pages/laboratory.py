@@ -1,7 +1,7 @@
 # =============================================================
 # pages/laboratory.py  (현상 실험실)
 # 원인 해부실에서 설명한 원리를 실제 계산 결과로 확인(검증)하는 페이지
-# 실험 5가지 (탐구 순서): 정수 오버플로 → 부동소수점 → 문자 인코딩 → 유니코드 정규화, 그리고 오류 검출(패리티·체크섬)
+# 실험 6가지 (탐구 순서): 정수 오버플로 → 부동소수점 → 문자 인코딩 → 유니코드 정규화 → 한글 조합, 그리고 오류 검출(패리티·체크섬)
 # =============================================================
 
 import unicodedata                               # 유니코드 정규화(NFC, NFD) 기능
@@ -29,6 +29,7 @@ LABS = {
     "float": ("0.1 + 0.2 계산하기", 2),
     "encoding": ("글자를 바이트로 바꾸기", 3),
     "unicode": ("한글 쪼개 보기 (NFC / NFD)", 4),
+    "hangul": ("한글 조합 공식과 '완완성' 재현", 5),
     "parity": ("오류 검출: 패리티 비트와 XOR 체크섬", None),
 }
 
@@ -531,6 +532,97 @@ def run_parity_lab():
                        "그래서 실제 통신과 저장 장치는 CRC처럼 더 강한 검사 방법을 함께 써요.")
 
 
+# -------------------------------------------------------------
+# 6. 한글 조합 실험 (BUG-005): 유니코드 한글 조합 공식과 '완완성' 재현
+# -------------------------------------------------------------
+
+# 유니코드가 정해 둔 자모 순서. 리스트에서의 위치(0부터)가 공식에 들어가는 번호가 된다.
+CHOSEONG = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]  # 초성 19개
+JUNGSEONG = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"]  # 중성 21개
+JONGSEONG = ["(없음)", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ",
+             "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]  # 종성 28개 (0번 = 받침 없음)
+HANGUL_START = 0xAC00          # '가'의 유니코드 번호 (44032). 한글 11,172자는 여기서부터 빈틈없이 이어진다.
+
+
+def compose(cho, jung, jong):
+    """초성·중성·종성 번호로 완성된 한글 한 글자를 계산한다. (유니코드 한글 조합 공식)"""
+    # 초성 하나마다 (중성 21 × 종성 28 = 588)자가 붙으므로, 번호 = 0xAC00 + (초성×21 + 중성)×28 + 종성
+    return chr(HANGUL_START + (cho * 21 + jung) * 28 + jong)
+
+
+def decompose(syllable):
+    """완성된 한글 한 글자를 다시 초성·중성·종성 번호로 쪼갠다. (조합 공식을 거꾸로)"""
+    offset = ord(syllable) - HANGUL_START          # '가'에서 몇 번째 글자인가
+    cho = offset // 588                            # // : 몫. 588자씩 묶음이 몇 개인가 → 초성
+    jung = (offset % 588) // 28                    # % : 나머지. 남은 것을 28로 나눈 몫 → 중성
+    jong = offset % 28                             # 28로 나눈 나머지 → 종성
+    return cho, jung, jong
+
+
+def show_formula_lab():
+    """초성·중성·종성을 골라서 공식으로 글자를 계산하고, 거꾸로 쪼개서 확인한다."""
+    st.markdown("#### 🧪 한글은 계산식으로 만들어진다")
+    cho_column, jung_column, jong_column = st.columns(3)
+    # index=: 처음에 골라 둘 위치 → ㅇ(11) + ㅘ(9) + ㄴ(4) = '완'
+    cho = cho_column.selectbox("초성", range(len(CHOSEONG)), index=11, format_func=lambda i: f"{CHOSEONG[i]} ({i})", key="hg_cho")
+    jung = jung_column.selectbox("중성", range(len(JUNGSEONG)), index=9, format_func=lambda i: f"{JUNGSEONG[i]} ({i})", key="hg_jung")
+    jong = jong_column.selectbox("종성", range(len(JONGSEONG)), index=4, format_func=lambda i: f"{JONGSEONG[i]} ({i})", key="hg_jong")
+
+    syllable = compose(cho, jung, jong)
+    number = ord(syllable)
+    st.code(f"번호 = 44032 + ({cho} × 21 + {jung}) × 28 + {jong}\n"
+            f"     = 44032 + {(cho * 21 + jung) * 28 + jong}\n"
+            f"     = {number}  (16진수 U+{number:04X})\n"
+            f"chr({number}) → '{syllable}'")
+    back = decompose(syllable)
+    result_box("note", f"거꾸로 쪼개면 ({back[0]}, {back[1]}, {back[2]}) → {CHOSEONG[back[0]]} + {JUNGSEONG[back[1]]} + {JONGSEONG[back[2]]}. "
+                       "이렇게 조각으로 나눠 저장하는 방식이 BUG-004의 NFD예요.")
+
+
+# '완선 → ⌫ → ㅅ ㅓ ㅇ' 재현 장면. 글자는 모두 compose()로 계산해서 만든다.
+WAN = compose(11, 9, 4)     # ㅇ+ㅘ+ㄴ = 완
+SEON = compose(9, 4, 4)     # ㅅ+ㅓ+ㄴ = 선
+SEO = compose(9, 4, 0)      # ㅅ+ㅓ    = 서
+SEONG = compose(9, 4, 21)   # ㅅ+ㅓ+ㅇ = 성
+
+# 장면 하나 = (누른 키, 입력기가 조합 중인 글자, 정상 화면, 오류 화면, 설명, 근거)
+REPLAY_FRAMES = [
+    ("완 선", SEON, WAN + SEON, WAN + SEON,
+     "'완선'까지 입력했어요. 입력기는 마지막 글자 '선'을 '조합 중' 상태로 들고 있어요.", "확인"),
+    ("⌫", WAN, WAN, WAN,
+     "'선'을 지웠어요. 이때 입력기가 앞 글자 '완'을 다시 조합 중으로 끌어와요. 프로그램은 '완'을 이미 완성된 글자로 기억해요.", "추정"),
+    ("ㅅ", "ㅅ", WAN + "ㅅ", WAN + WAN + "ㅅ",
+     "'완'에는 ㅅ을 받침으로 붙일 수 없어서 입력기는 '완'을 확정해서 보내고 ㅅ으로 새 글자를 시작해요. "
+     "프로그램에는 이미 '완'이 있어서 '완'이 하나 더 생겨요.", "추정"),
+    ("ㅓ", SEO, WAN + SEO, WAN + WAN + SEO,
+     "ㅅ에 ㅓ가 붙어 조합 중인 글자가 '서'가 돼요.", "확인"),
+    ("ㅇ", SEONG, WAN + SEONG, WAN + WAN + SEONG,
+     "ㅇ이 받침으로 붙어 '성'이 돼요. 정상이라면 '완성', 오류가 나면 '완완성'이에요.", "확인"),
+]
+
+
+def show_replay():
+    """'완선 → ⌫ → ㅅ ㅓ ㅇ'을 한 단계씩 넘기며 정상 화면과 오류 화면을 비교한다. (재현 화면)"""
+    st.markdown("#### 🎞️ '완완성' 재현 (실제 녹화 아님)")
+    step = st.slider("단계", 1, len(REPLAY_FRAMES), 1, key="hg_step")
+    key, composing, normal, bug, explanation, basis = REPLAY_FRAMES[step - 1]
+    keys_pressed = " → ".join(frame[0] for frame in REPLAY_FRAMES[:step])      # 지금까지 누른 키
+    st.code(f"누른 키        : {keys_pressed}\n"
+            f"입력기 조합 중 : '{composing}'  (U+{ord(composing[-1]):04X})\n"
+            f"정상 화면      : {normal}\n"
+            f"오류 화면      : {bug}")
+    result_box("diff" if normal != bug else "same", f"[{basis}] {explanation}")
+    st.caption("단계 2·3의 '입력기가 앞 글자를 다시 끌어온다'는 설명은 공식 문서로 확인되지 않은 추정이에요. "
+               "실제로 겪은 현상(BUG-005 직접 관찰)을 원리에 맞춰 다시 그려 본 재현 화면이에요.")
+
+
+def run_hangul_lab():
+    """한글 조합 공식 계산기와 '완완성' 재현 화면을 차례로 보여 준다."""
+    show_formula_lab()
+    st.divider()
+    show_replay()
+
+
 # ----- 실제 실행 순서 -----
 # 고른 실험에 맞는 함수를 실행하기 위한 표 (딕셔너리: 이름표 → 함수)
 lab_functions = {
@@ -538,12 +630,13 @@ lab_functions = {
     "float": run_float_lab,
     "encoding": run_encoding_lab,
     "unicode": run_unicode_lab,
+    "hangul": run_hangul_lab,
     "parity": run_parity_lab,
 }
 
 with crt_frame("pages/laboratory.py", "LAB"):
     page_banner("science", "PHENOMENON LAB", "현상 실험실", "직접 실행하며 컴퓨터의 처리 원리를 확인합니다.")
-    selector_column, link_column = st.columns([3, 1])      # 1) 실험 고르기 + 관련 오류로 가기 버튼을 한 줄에
+    selector_column, link_column = st.columns([3, 1], vertical_alignment="center")   # 1) 실험 고르기 + 관련 오류로 가기 버튼을 한 줄에 (세로 가운데 맞춤)
     with selector_column:
         show_lab_selector()
     selected_lab = st.session_state["lab_topic"]
