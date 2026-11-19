@@ -1,19 +1,46 @@
+# =============================================================
+# common.py
+# 여러 페이지에서 함께 쓰는 데이터와 함수를 모아 둔 파일
+# - 같은 코드를 페이지마다 반복해서 쓰지 않으려고 한곳에 모았다.
+# - 각 페이지는 맨 위에서 "from common import ..."로 필요한 것만 가져다 쓴다.
+# - 모든 페이지는 crt_frame() 안에 그려져서, 레트로 CRT 모니터 화면 속에 보인다.
+# =============================================================
+
 import json                                  # JSON 파일(오류 데이터)을 파이썬 자료로 바꾸는 모듈
 from contextlib import contextmanager        # "with 함수():" 형태로 쓸 수 있는 함수를 만드는 도구
 from html import escape                      # 글자 속 <, > 같은 기호를 안전하게 바꿔 주는 함수
 from pathlib import Path                     # 파일 경로를 운영체제와 상관없이 다루는 도구
+
 import streamlit as st                       # 웹앱을 만드는 라이브러리
+
+
+# -------------------------------------------------------------
+# 1. 상수(바뀌지 않는 값) 정의
+# -------------------------------------------------------------
+
+# 오류 데이터 파일 위치
+# __file__ = 지금 이 파일(common.py)의 위치, .parent = 그 파일이 들어 있는 폴더
+# 즉 "common.py와 같은 폴더 안의 data/cases.json"을 가리킨다.
 DATA_PATH = Path(__file__).parent / "data" / "cases.json"
+
+# 사례 분류 목록 (오류 도감의 분류 버튼에 사용) — 탐구 순서: 정수 → 실수
 CATEGORIES = ["정수", "실수"]
+
+# 분류마다 붙일 아이콘 (Streamlit이 제공하는 Material 아이콘 이름)
 CATEGORY_ICONS = {
     "전체": "layers",
     "정수": "pin",
     "실수": "percent",
 }
+
+# 원인 유형 이름과 설명 (딕셔너리: "이름": "설명") — 오류 도감 카드와 오류 비교실에서 사용
 CAUSE_TYPES = {
     "범위의 한계": "칸 수가 정해져 있어서 담을 수 있는 가장 큰 수와 가장 작은 수가 있다",
     "정밀도의 한계": "칸 수가 정해져 있어서 끝없이 이어지는 수나 아주 작은 수를 정확히 담지 못한다",
 }
+
+# 모니터 화면 위쪽 메뉴: (페이지 파일, 메뉴 이름, 아이콘)
+# 첫 화면(홈)으로는 창의 × 버튼과 전원 버튼으로 돌아가므로 메뉴에는 넣지 않는다.
 NAV_PAGES = [
     ("pages/catalog.py", "오류 도감", ":material/menu_book:"),
     ("pages/anatomy.py", "원인 해부실", ":material/layers:"),
@@ -21,6 +48,10 @@ NAV_PAGES = [
     ("pages/compare.py", "오류 비교실", ":material/compare_arrows:"),
     ("pages/detection.py", "오류 검출", ":material/fact_check:"),
 ]
+
+# 픽셀 아트 컴퓨터 그림 (웃는 얼굴 모니터) - 창 제목 줄과 홈 화면에서 사용
+# SVG의 <rect>(사각형)를 1칸짜리 픽셀처럼 쌓아서 그린다.
+# shape-rendering="crispEdges": 사각형 가장자리를 흐리지 않고 또렷하게 그린다.
 PIXEL_COMPUTER_SVG = """
 <svg class="px-computer" viewBox="0 0 40 30" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
 <g fill="#1F4D25">
@@ -41,56 +72,25 @@ PIXEL_COMPUTER_SVG = """
 <g fill="#1F4D25"><rect x="11" y="23" width="1" height="1"/><rect x="13" y="23" width="1" height="1"/><rect x="22" y="23" width="7" height="1"/></g>
 </svg>
 """
+
+
+# -------------------------------------------------------------
+# 2. 데이터 관련 함수
+# -------------------------------------------------------------
+
+# @st.cache_data: 한 번 읽은 결과를 저장(캐시)해 두는 기능
+# → 페이지를 이동할 때마다 파일을 다시 읽지 않아서 빠르다.
 @st.cache_data
 def load_cases():
     """cases.json 파일을 읽어서 사례 목록(딕셔너리들의 리스트)으로 돌려준다."""
+    # encoding="utf-8": 한글이 깨지지 않도록 UTF-8 규칙으로 읽는다.
     with open(DATA_PATH, encoding="utf-8") as file:
         return json.load(file)
+
+
 def find_case(cases, case_id):
     """오류 목록에서 번호(id)가 같은 오류 하나를 찾아 돌려준다. 없으면 None."""
     for case in cases:                 # 목록을 처음부터 하나씩 확인
         if case["id"] == case_id:      # 번호가 같으면
             return case                # 그 오류를 바로 돌려준다
     return None                        # 끝까지 못 찾으면 None
-def case_label(case):
-    """선택 상자나 버튼에 보여 줄 이름을 만든다. 예) BUG-001 · 정수 오버플로 · 언더플로"""
-    return f"BUG-{case['id']:03d} · {case['title']}"
-def search_cases(cases, keyword, category):
-    """검색어(keyword)와 분류(category)로 오류 목록을 걸러 낸다."""
-    keyword = keyword.strip().lower()
-    results = []
-    for case in cases:
-        if category != "전체" and case["category"] != category:
-            continue
-        term_names = [term["term"] for term in case["terms"]]
-        searchable_text = " ".join(
-            [case["title"], case["nickname"], case["tech"], case["summary"], case["symptom"]]
-            + case["keywords"] + term_names
-        ).lower()
-        if keyword in searchable_text:
-            results.append(case)
-    return results
-def open_case(case_id):
-    """선택한 오류 번호를 기억해 두고 원인 해부실 페이지로 이동한다."""
-    st.session_state["selected_case"] = case_id
-    st.switch_page("pages/anatomy.py")
-def render_html(code):
-    """HTML 코드를 화면에 그린다."""
-    lines = [line.strip() for line in code.splitlines()]
-    clean_code = "\n".join(line for line in lines if line)
-    st.markdown(clean_code, unsafe_allow_html=True)
-def icon(name):
-    """HTML 안에서 쓸 Material 아이콘 하나를 만든다. 예) icon("science") → 플라스크 모양"""
-    return f'<span class="bt-icon">{escape(name)}</span>'
-def toggle_window(state_name):
-    """창 상태(최소화 'win_min' / 최대화 'win_max')를 켜고 끈다. True ↔ False"""
-    st.session_state[state_name] = not st.session_state.get(state_name, False)
-def show_window_buttons():
-    """창 버튼 3개(— □ ×)를 진짜로 동작하게 만든다."""
-    is_max = st.session_state.get("win_max", False)
-    with st.container(key="win_btns", horizontal=True):
-        st.button("—", key="win_min_btn", help="최소화 (내용 접기)", on_click=toggle_window, args=("win_min",))
-        st.button("❐" if is_max else "□", key="win_max_btn", help="최대화 / 원래 크기", on_click=toggle_window, args=("win_max",))
-        if st.button("×", key="win_close_btn", help="닫고 첫 화면으로"):
-            st.session_state["win_min"] = False
-            st.switch_page("pages/home.py")
