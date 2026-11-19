@@ -94,3 +94,43 @@ def show_hero():
     """픽셀 컴퓨터 그림 + BUG TRACE 제목 상자(+ 픽셀 커서)"""
     render_html(f"""
         <div class="home-hero">
+            {PIXEL_COMPUTER_SVG}
+            <div class="home-title-wrap">
+                <div class="home-title-box"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span><div class="home-title">BUG TRACE</div></div>
+                {PIXEL_CURSOR_SVG}
+            </div>
+        </div>
+    """)
+
+
+def show_intro():
+    """웹앱 간단 소개: 무엇을 하는 곳인지 한두 줄 + 다루는 주제 이름표"""
+    render_html("""
+        <div class="home-intro">
+            <div class="home-intro-main">조회수가 갑자기 음수가 되고, 0.1 + 0.2가 0.3이 아닌 이유는?<br>숫자를 정해진 개수의 비트에 저장하는 컴퓨터의 한계를 추적하는 디지털 오류 연구소</div>
+            <div class="home-intro-sub">2가지 사례를 공식 문서를 근거로 깊이 추적하고, 직접 계산해서 확인해요.</div>
+            <div class="home-chips"><span>정수 오버플로·언더플로</span><span>2038년 문제</span><span>실수 정밀도 오차·언더플로</span><span>오류 검출</span></div>
+        </div>
+    """)
+
+
+def show_enter_button():
+    """'연구소 들어가기' 버튼: 누르면 오류 도감 페이지로 이동한다."""
+    # 가운데 칸에만 버튼을 놓아서 화면 가운데에 오게 한다. (왼쪽·오른쪽 칸은 비워 둔다)
+    left_space, button_column, right_space = st.columns([1, 1.2, 1])
+    with button_column:
+        with st.container(key="enter_lab"):
+            st.page_link("pages/catalog.py", label="연구소 들어가기", icon=":material/play_arrow:", width="stretch")
+
+
+# ----- 실제 실행 순서 -----
+apply_home_style()                                   # 1) 첫 화면 디자인
+
+with st.container(key="crt"):                        # 2) 모니터 바깥 틀
+    with st.container(key="crt_screen"):             # 3) 모니터 화면
+        show_corners("top")                          #    위쪽 귀퉁이 빗금
+        show_hero()                                  #    픽셀 컴퓨터 + 제목
+        show_intro()                                 #    웹앱 간단 소개
+        show_enter_button()                          #    연구소 들어가기 버튼
+        show_corners("bottom")                       #    아래쪽 귀퉁이 빗금
+    show_monitor_panel()                             # 4) 모니터 아래쪽 (스피커·불빛·플로피·전원)
