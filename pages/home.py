@@ -1,3 +1,4 @@
+
 # =============================================================
 # pages/home.py  (홈 = 첫 화면)
 # 깔끔한 시작 화면: CRT 모니터 안에 픽셀 컴퓨터, BUG TRACE 제목,
@@ -12,7 +13,7 @@ from common import PIXEL_COMPUTER_SVG, render_html, show_monitor_panel
 PIXEL_CURSOR_SVG = """
 <svg class="home-cursor" viewBox="0 0 12 18" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
 <path fill="#1F4D25" d="M0 0h1v1H0zM0 1h2v1H0zM0 2h3v1H0zM0 3h4v1H0zM0 4h5v1H0zM0 5h6v1H0zM0 6h7v1H0zM0 7h8v1H0zM0 8h9v1H0zM0 9h10v1H0zM0 10h6v1H0zM0 11h3v1H0zM4 11h3v1H4zM0 12h2v1H0zM5 12h2v2H5zM0 13h1v1H0zM6 14h2v2H6z"/>
-<path fill="#FBFDF1" d="M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h5v1H1zM1 7h6v1H1zM1 8h7v1H1zM1 9h3v1H1zM5 9h2v1H5zM1 10h1v1H1z"/>
+<path fill="#FBFDF1" d="M1 2h1v1H1zM1 3h2v1H1zM1 4h3v1H1zM1 5h4v1H1zM1 6h5v1H1zM1 7h6v1H1zM1 8h7v1H1zM1 9h3v1H1zM1 10h1v1H1z"/>
 </svg>
 """
 
@@ -107,7 +108,7 @@ def show_intro():
     """웹앱 간단 소개: 무엇을 하는 곳인지 한두 줄 + 다루는 주제 이름표"""
     render_html("""
         <div class="home-intro">
-            <div class="home-intro-main">조회수가 갑자기 음수가 되고, 0.1 + 0.2가 0.3이 아닌 이유는?<br>숫자를 정해진 개수의 비트에 저장하는 컴퓨터의 한계를 추적하는 디지털 오류 연구소</div>
+            <div class="home-intro-main">조회수가 갑자기 음수가 되고, 0.1 + 0.2가 0.3이 아닌 이유는?<br>숫자 저장의 한계를 추적하는 디지털 오류 연구소</div>
             <div class="home-intro-sub">2가지 사례를 공식 문서를 근거로 깊이 추적하고, 직접 계산해서 확인해요.</div>
             <div class="home-chips"><span>정수 오버플로·언더플로</span><span>2038년 문제</span><span>실수 정밀도 오차·언더플로</span><span>오류 검출</span></div>
         </div>
