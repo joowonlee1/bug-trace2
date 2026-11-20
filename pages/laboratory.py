@@ -40,13 +40,16 @@ UNIX_START = datetime(1970, 1, 1, tzinfo=timezone.utc)    # 유닉스 시간의 
 #   .s = 부호 칸(빨강) / .e = 지수 칸(파랑) / .m = 가수 칸(라임) / .gap = 부분 사이 틈
 BIT_STYLE = """
 <style>
-.fbits { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0 6px; }
-.fbits span { width: 15px; height: 24px; line-height: 20px; text-align: center; font-size: 0.8rem; border: 2px solid var(--ink);
+.fbits { display: grid; grid-template-columns: repeat(32, 25px); gap: 3px; width: max-content; margin: 8px 0 12px; }
+.fbits span:not(.gap) { box-sizing: border-box; width: 25px; height: 36px; line-height: 31px; text-align: center; font-size: 1.05rem; border: 2px solid var(--ink);
               font-family: 'Galmuri11', monospace; font-weight: 700; }
+.fbits .bit-break { grid-column: 1 / -1; height: 0; }
+.fbits-scroll { max-width: 100%; overflow-x: auto; padding: 2px 3px 8px; }
+@media (max-width: 850px) { .fbits { grid-template-columns: repeat(16, 25px); } .fbits .bit-break { display: none; } }
 .fbits .s { background: #F6D5CF; color: var(--red); border-color: var(--red); }
 .fbits .e { background: #D6E8F7; color: var(--sky); border-color: var(--sky); }
 .fbits .m { background: var(--lime-soft); color: var(--ink); }
-.fbits .gap { width: 6px; border: none; }
+.fbits .gap { display: none; }
 .flegend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.9rem; margin-bottom: 4px; }
 .flegend b { padding: 0 6px; border: 2px solid var(--ink); }
 .flegend .s { background: #F6D5CF; } .flegend .e { background: #D6E8F7; } .flegend .m { background: var(--lime-soft); }
@@ -55,10 +58,7 @@ BIT_STYLE = """
 """
 
 
-# 사용자에게 보이는 지수 표기는 e 대신 10의 거듭제곱으로 표시한다.
-_SUPERSCRIPT = str.maketrans("-+0123456789", "⁻⁺⁰¹²³⁴⁵⁶⁷⁸⁹")
-
-
+# 작은 위첨자 대신 일반 크기의 지수 표기를 사용한다.
 def readable_number(value):
     """숫자 또는 숫자 문자열을 읽기 쉬운 10의 거듭제곱 표기로 바꾼다."""
     raw = str(value)
@@ -67,7 +67,7 @@ def readable_number(value):
         return raw
     coefficient, exponent = match.groups()
     exponent = int(exponent)
-    return f"{coefficient} × 10{str(exponent).translate(_SUPERSCRIPT)}"
+    return f"{coefficient} × 10^({exponent})"
 
 
 LAB_FLOAT_STYLE = """
@@ -212,11 +212,11 @@ def set_int_example(start, operator):
 
 def show_int_examples():
     """입력칸을 예시 값으로 한 번에 채우는 버튼 2개"""
-    over_column, under_column, _ = st.columns([1, 1, 2])
+    over_column, under_column, _ = st.columns([1.25, 1.25, 5.5], gap="small")
     over_column.button("최댓값 + 1", key="int_ex_over",
-                       on_click=set_int_example, args=(INT_MAX, "+"))
+                       on_click=set_int_example, args=(INT_MAX, "+"), use_container_width=True)
     under_column.button("최솟값 − 1", key="int_ex_under",
-                        on_click=set_int_example, args=(INT_MIN, "−"))
+                        on_click=set_int_example, args=(INT_MIN, "−"), use_container_width=True)
 
 
 def show_int_result(start, operator, amount):
@@ -352,14 +352,14 @@ def show_float_bits(number, label):
     cells = ""
     for position, bit in enumerate(text):
         kind = "s" if position == 0 else ("e" if position <= 11 else "m")
-        if position in (1, 12):                      # 부분이 바뀌는 곳에 작은 틈
-            cells += '<span class="gap"></span>'
+        if position == 32:
+            cells += '<span class="bit-break" aria-hidden="true"></span>'
         cells += f'<span class="{kind}">{bit}</span>'
     render_html(f"""
         <div class="bits-label">{escape(label)}</div>
         <div class="flegend"><span><b class="s">부호 1칸</b> 0=양수</span><span><b class="e">지수 11칸</b> 2의 몇 제곱인지</span>
         <span><b class="m">가수 52칸</b> 유효숫자</span></div>
-        <div class="fbits">{cells}</div>
+        <div class="fbits-scroll"><div class="fbits">{cells}</div></div>
     """)
 
 
