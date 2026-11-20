@@ -168,13 +168,46 @@ def toggle_window(state_name):
     st.session_state[state_name] = not st.session_state.get(state_name, False)
 
 
+SUPPORT_MESSAGES = [
+    "오류를 발견했다면, 해결에 한 걸음 더 가까워진 거야!",
+    "예상과 다른 결과도 중요한 발견이야.",
+    "오늘 이해한 작은 원리가 내일의 큰 실력이 될 거야.",
+    "실패한 실험도 기록하면 다음 도전의 단서가 돼!",
+    "정답보다 중요한 건 왜 그런지 끝까지 궁금해하는 마음이야.",
+]
+
+
+def open_support_surprise():
+    """서프라이즈를 열고 다음 응원 문구를 선택한다."""
+    next_index = st.session_state.get("support_message_index", -1) + 1
+    st.session_state["support_message_index"] = next_index % len(SUPPORT_MESSAGES)
+    st.session_state["support_surprise_open"] = True
+
+
+@st.dialog("BUG TRACE · 비밀 응원 메시지", width="small")
+def show_support_surprise():
+    """홈 화면과 동일한 픽셀 컴퓨터 캐릭터를 보여 주는 팝업."""
+    message_index = st.session_state.get("support_message_index", 0)
+    render_html(f"""
+        <div class="bt-support-surprise">
+            <div class="bt-support-eyebrow">SECRET MESSAGE UNLOCKED!</div>
+            <div class="bt-support-mascot">{PIXEL_COMPUTER_SVG}</div>
+            <div class="bt-support-heading">오늘도 탐구 중인 당신에게</div>
+            <div class="bt-support-message">{escape(SUPPORT_MESSAGES[message_index])}</div>
+        </div>
+    """)
+    if st.button("학습 계속하기", key="support_surprise_close", type="primary", use_container_width=True):
+        st.session_state["support_surprise_open"] = False
+        st.rerun()
+
+
 def show_window_buttons():
-    """창 버튼 3개(— □ ×)를 진짜로 동작하게 만든다."""
+    """창 버튼 3개(서프라이즈 / 최대화 / 홈)를 동작하게 만든다."""
     is_max = st.session_state.get("win_max", False)
     # horizontal=True: 버튼 3개를 가로로 나란히 놓는다.
     with st.container(key="win_btns", horizontal=True):
-        # — 최소화: 화면 내용을 접는다 / 다시 누르면 펼친다
-        st.button("—", key="win_min_btn", help="최소화 (내용 접기)", on_click=toggle_window, args=("win_min",))
+        # — 버튼: 최소화 대신 홈 화면 캐릭터의 비밀 응원 팝업을 연다.
+        st.button("—", key="win_min_btn", help="작은 서프라이즈", on_click=open_support_surprise)
         # □ 최대화: 모니터 틀을 빼고 화면을 꽉 채운다 / 최대화 중에는 ❐(원래대로) 모양
         st.button("❐" if is_max else "□", key="win_max_btn", help="최대화 / 원래 크기", on_click=toggle_window, args=("win_max",))
         # × 닫기: 프로그램을 닫듯이 첫 화면으로 돌아간다
@@ -197,6 +230,8 @@ def show_window_bar(english_name):
         """)
     with button_column:
         show_window_buttons()
+    if st.session_state.get("support_surprise_open", False):
+        show_support_surprise()
 
 
 def show_nav(current_page):
@@ -239,7 +274,7 @@ def show_monitor_panel():
 @contextmanager
 def crt_frame(current_page, english_name):
     """레트로 CRT 모니터를 그리고, 그 화면 안에 페이지 내용을 담는다. 창 버튼(— □ ×) 상태도 반영한다."""
-    is_min = st.session_state.get("win_min", False)    # 최소화 중인가?
+    is_min = False  # 기존 최소화 기능을 사용하지 않고 학습 화면을 항상 유지한다.
     is_max = st.session_state.get("win_max", False)    # 최대화 중인가?
     # 최대화 중이면 바깥 틀 이름을 "crt_max"로 바꿔서 CSS로 틀을 얇게, 아래 패널은 숨긴다.
     with st.container(key="crt_max" if is_max else "crt"):     # 모니터 바깥 틀 (베이지 플라스틱)
@@ -356,6 +391,38 @@ def apply_style():
         .st-key-win_btns div.stButton button { min-height: 30px; width: 34px; min-width: 34px; padding: 0; margin: 3px 2px 6px; }
         .st-key-win_btns div.stButton button p { font-family: 'Noto Sans KR', sans-serif !important; font-size: 1.1rem !important; font-weight: 900 !important; }
         .st-key-win_btns div.stButton button:hover { background: var(--lime); }
+        /* 비밀 응원 팝업: 홈 화면의 픽셀 컴퓨터 SVG를 그대로 재사용 */
+        .bt-support-surprise {
+            text-align: center;
+            padding: 8px 8px 18px;
+            color: #1F4D25;
+            font-family: 'Galmuri11', sans-serif;
+        }
+        .bt-support-eyebrow {
+            font-size: .85rem;
+            font-weight: 800;
+            letter-spacing: .04em;
+            color: #426A36;
+        }
+        .bt-support-mascot .px-computer {
+            display: block;
+            width: min(180px, 48vw);
+            height: auto;
+            margin: 14px auto 10px;
+        }
+        .bt-support-heading {
+            font-size: 1.2rem;
+            font-weight: 900;
+            margin: 10px 0;
+        }
+        .bt-support-message {
+            font-size: 1rem;
+            line-height: 1.7;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+            max-width: 430px;
+            margin: 0 auto;
+        }
         /* 최소화: 내용 상자를 숨기고 안내 한 줄만 보여 준다 */
         .st-key-win_hidden { display: none !important; }
         .win-min-note { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); background: var(--paper); border: 3px dashed var(--ink); padding: 10px 14px; }
