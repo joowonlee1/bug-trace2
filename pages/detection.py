@@ -103,18 +103,19 @@ def show_main_idea():
 
 
 def show_parity_explain():
-    """③ 패리티 비트가 무엇인지, 짝수·홀수 패리티, XOR로 계산하는 법, 한계를 차례로 자세히 설명한다."""
+    """실험 전 짝수·홀수 패리티를 먼저 비교한다."""
     render_html(f"""
-        {section_label("help", "PARITY", "패리티 비트란?")}
+        {section_label("help", "PARITY", "실험 전: 짝수 패리티와 홀수 패리티")}
         <div class="bt-box dt-explain">
-            <p><b>패리티 비트</b>는 데이터를 보내거나 저장할 때 <b>비트가 잘못 바뀌었는지 확인하려고 덧붙이는 1비트</b>예요.</p>
-            <p>예를 들어 <code>1011</code>에는 1이 3개 있어요. <b>짝수 패리티</b>에서는 1의 총개수가 짝수가 되도록 뒤에 <code>1</code>을 붙여
-            <code>1011<b>1</b></code>로 보내요. 보내는 도중 비트 하나가 바뀌어 <code>10011</code>이 되면 1이 3개(홀수)가 되므로,
-            받는 쪽에서 "오는 길에 무언가 바뀌었다"는 것을 알아챌 수 있어요. <b>홀수 패리티</b>는 같은 방식으로 1의 총개수를 홀수로 맞춰요.</p>
-            <p>비트 연산으로는 <b>XOR(^)</b>을 쓰면 돼요. XOR은 두 비트가 다르면 1, 같으면 0이라서, 모든 비트를 XOR하면 1이 홀수 개일 때 1이 나와요.
-            <code>1 ^ 0 ^ 1 ^ 1 = 1</code>이므로, 이 결과가 바로 붙여야 할 짝수 패리티 비트예요.</p>
-            <p>하지만 패리티 비트 하나로는 <b>어느 비트가 바뀌었는지</b> 알 수 없고, <b>두 비트가 함께 바뀌면</b> 짝수·홀수가 그대로라서 오류를 놓쳐요.
-            2의 보수가 <b>비트에 숫자의 의미를 부여하는 규칙</b>이라면, 패리티 비트는 <b>비트가 전달되는 과정에서 바뀌었는지 검사하는 장치</b>예요.</p>
+          <p><b>패리티 비트</b>는 데이터가 전달되는 동안 비트가 바뀌었는지 검사하려고 덧붙이는 한 칸이에요.</p>
+          <div class="dt-parity-grid">
+            <div><b>짝수 패리티</b><p><strong>1의 총개수가 짝수가 되도록</strong> 비트를 붙여요.</p>
+              <code>1011 + 1 → 10111</code><p>원래 1이 3개 → 1을 붙여 총 4개</p></div>
+            <div><b>홀수 패리티</b><p><strong>1의 총개수가 홀수가 되도록</strong> 비트를 붙여요.</p>
+              <code>1011 + 0 → 10110</code><p>원래 1이 3개 → 0을 붙여 총 3개</p></div>
+          </div>
+          <p><b>이 실험에서는 짝수 패리티를 사용해요.</b> 비트 하나가 바뀌면 1의 개수의 짝수·홀수가 달라져 오류를 알아챌 수 있어요.</p>
+          <p>하지만 <b>두 비트가 함께 바뀌면</b> 짝수·홀수가 그대로일 수 있어 오류를 놓쳐요. 또한 패리티만으로는 어느 비트가 바뀌었는지 알 수 없어요.</p>
         </div>
     """)
 
@@ -124,7 +125,7 @@ def show_parity_steps():
     render_html(f"""
         {section_label("format_list_numbered", "STEP", "글자 B로 따라 해 보기 (짝수 패리티)")}
         <div class="an-steps">
-            <div class="an-step"><span class="bt-step-no">#01</span><div class="an-step-text">글자 <b>B</b>를 비트로 바꾸면 <code>01000010</code>이에요. (컴퓨터 안의 글자 번호 66)</div></div>
+            <div class="an-step"><span class="bt-step-no">#01</span><div class="an-step-text">글자 <b>B</b>를 비트로 바꾸면 <code>01000010</code>이에요.</div></div>
             <div class="an-step"><span class="bt-step-no">#02</span><div class="an-step-text">1의 개수를 세요. <code>0<b>1</b>0000<b>1</b>0</code> → <b>2개</b> (짝수)</div></div>
             <div class="an-step"><span class="bt-step-no">#03</span><div class="an-step-text">1의 개수를 짝수로 맞추는 칸 하나를 붙여요. 이미 짝수이므로 <b>0</b>을 붙여요. → <code>01000010 0</code></div></div>
             <div class="an-step"><span class="bt-step-no">#04</span><div class="an-step-text">받는 쪽은 9칸의 1을 다시 세요. <b>홀수</b>라면 비트 하나가 뒤집힌 거예요!</div></div>
@@ -181,7 +182,9 @@ def show_verdict(positions, caught, checksum_caught):
             found.append(f"패리티({caught}개 바이트)")
         if checksum_caught:
             found.append("XOR 체크섬")
-        render_html(f'<div class="bt-box bt-ok"><div class="bt-box-label">✅ 찾아냈어요</div>{escape(", ".join(found))}이(가) 오류를 알아챘어요.</div>')
+        render_html('<div class="bt-box bt-ok"><div class="bt-box-label">오류 검사 결과</div>'
+                    + ('<p><b>패리티 검사: 오류 발견</b> — 1의 개수 규칙이 달라졌어요.</p>' if caught else '<p><b>패리티 검사: 발견하지 못함</b></p>')
+                    + ('<p><b>XOR 체크섬: 오류 발견</b> — 검사값이 달라졌어요.</p>' if checksum_caught else '<p><b>XOR 체크섬: 발견하지 못함</b></p>') + '</div>')
     if not caught:
         render_html('<div class="bt-box bt-err"><div class="bt-box-label">❌ 패리티가 놓쳤어요</div>'
                     '한 바이트 안에서 비트 2개가 함께 뒤집히면 1의 개수가 다시 짝수가 되어 패리티가 알아채지 못해요.</div>')
@@ -193,6 +196,10 @@ def show_verdict(positions, caught, checksum_caught):
 def run_detection_lab():
     """④ 직접 실험: 글자를 비트로 바꿔 보내는 중에 비트를 1~2개 뒤집고, 패리티와 XOR 체크섬이 알아채는지 확인한다."""
     render_html(section_label("science", "TRY IT", "직접 비트를 뒤집어 보기"))
+    render_html("""<div class="bt-box dt-explain"><b>실험 방법</b>
+      <p>① 보낼 글자를 입력해요. ② 뒤집을 비트 ①에 1 이상의 번호를 넣어요. (0은 변경하지 않음)</p>
+      <p>③ 보낸 데이터와 받은 데이터의 빨간색 비트를 비교해요. ④ 비트 ②도 바꿔 두 검사 방법의 차이를 관찰해요.</p>
+    </div>""")
     with st.container(border=True):
         text_column, first_column, second_column = st.columns([2, 1, 1], vertical_alignment="bottom")
         message = text_column.text_input("보낼 글자 (영어·숫자, 8글자까지)", "BUG", max_chars=8, key="dt_text")
@@ -262,7 +269,12 @@ def show_sources():
 # 이 페이지에만 쓰는 디자인: 바이트 한 줄, 3칸 비교 표, 단계 카드
 DETECTION_STYLE = """
 <style>
-.dt-row { display: flex; align-items: center; gap: 10px; margin: 3px 0; }
+.dt-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap:wrap; }
+.dt-row .bits span { width: 29px; height: 37px; line-height:33px; font-size:1.1rem; }
+.dt-parity-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0; }
+.dt-parity-grid > div { border:2px solid var(--ink);background:var(--paper);padding:12px; }
+.dt-parity-grid strong { color:var(--ink);background:var(--lime-soft); }
+@media(max-width:700px){.dt-parity-grid{grid-template-columns:1fr}}
 .dt-row .bits { margin: 0; }
 .dt-name { width: 54px; font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); }
 .dt-check { font-family: 'Galmuri11', sans-serif; font-weight: 700; }
