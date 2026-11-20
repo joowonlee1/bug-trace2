@@ -331,15 +331,17 @@ def show_float_result(first_text, second_text):
         second_number = float(second_text)
         computer_result = first_number + second_number                # 컴퓨터 방식(2진수) 계산
         exact_result = Decimal(first_text) + Decimal(second_text)     # 10진수로 정확히 계산
-    except (ValueError, ArithmeticError):
+    except (ValueError, ArithmeticError, OverflowError):
         result_box("input", "계산할 수 있는 숫자를 입력해 주세요. 예) 0.1")
         return
 
     # !r (repr): 숫자를 줄이지 않고 컴퓨터가 가진 값 그대로 보여 준다.
     st.code(f"컴퓨터 계산 (float)   : {first_text} + {second_text} = {computer_result!r}\n"
             f"정확한 계산 (Decimal) : {first_text} + {second_text} = {exact_result}")
-    if computer_result == float(exact_result):
-        result_box("same", "이번에는 두 결과가 같아요. 2진수로 딱 떨어지거나 오차가 반올림으로 사라진 경우예요. (예: 0.5 + 0.25)")
+    if Decimal(computer_result) == exact_result:
+        result_box("same", "이번 계산 결과는 정확한 10진수 값과 일치해요. (예: 0.5 + 0.25)")
+    elif computer_result == float(exact_result):
+        result_box("note", "출력은 자연스러워 보여도 내부 값은 정확한 10진수 결과와 달라요. 저장·계산 중 반올림이 일어날 수 있어요.")
     else:
         result_box("diff", f"두 결과가 달라요! 컴퓨터 계산 결과({computer_result!r})는 정확한 값({exact_result})과 다른 수예요.")
 
@@ -389,9 +391,47 @@ def draw_line_chart(values):
     """)
 
 
+def show_float_prediction():
+    """계산 전에 결과를 예상하고, 서로 다른 세 가지 경우를 비교한다."""
+    st.markdown("##### 먼저 예상해 보기")
+    st.markdown(
+        "일반 계산기에서는 대부분 `0.3`으로 보이지만, "
+        "Python의 `float` 계산에서는 어떤 결과가 나올까요?"
+    )
+    choice = st.radio(
+        "0.1 + 0.2의 Python 출력 결과는?",
+        ["0.3", "0.30000000000000004", "계산할 수 없어 오류가 발생한다"],
+        key="float_prediction_choice",
+        index=None,
+    )
+    if st.button("예상 결과 확인", key="float_prediction_reveal", disabled=choice is None):
+        st.session_state["float_prediction_shown"] = True
+    if st.session_state.get("float_prediction_shown", False):
+        if choice == "0.30000000000000004":
+            st.success("정답이에요! Python의 일반적인 64비트 부동소수점 계산 결과예요.")
+        else:
+            st.info("실제 출력은 0.30000000000000004예요. 프로그램이 고장 난 것은 아니에요.")
+        st.code("print(0.1 + 0.2)\n# 0.30000000000000004\nprint(0.1 + 0.2 == 0.3)\n# False", language="python")
+    st.markdown("##### 같은 덧셈인데 왜 결과가 다르게 보일까요?")
+    comparison = [
+        ("0.5 + 0.25", 0.5, 0.25, "두 수 모두 2진수로 정확히 저장할 수 있어요."),
+        ("0.1 + 0.3", 0.1, 0.3, "저장 오차는 있지만 결과가 0.4로 표시돼요."),
+        ("0.1 + 0.2", 0.1, 0.2, "작은 오차가 출력 결과에도 드러나요."),
+    ]
+    for label, left, right, explanation in comparison:
+        st.markdown(f"**`{label}` → `{left + right!r}`**  \n{explanation}")
+    st.caption(
+        "표시가 정상이라고 해서 내부 저장값까지 정확한 것은 아니에요. "
+        "반대로 모든 소수 계산에서 눈에 보이는 오차가 발생하는 것도 아니에요."
+    )
+    st.divider()
+    st.markdown("##### 직접 숫자를 바꿔 계산하기")
+
+
 def run_float_error_lab():
     """두 소수를 더해서 컴퓨터 계산 결과와 정확한 값을 비교하고, 저장된 비트와 쌓이는 오차를 보여 준다."""
     lab_title("0.1 + 0.2는 정말 0.3일까?", "두 수를 바꿔 넣어 보세요. 0.5 + 0.25처럼 2진수로 딱 떨어지는 수는 오차가 없어요.")
+    show_float_prediction()
     first_column, second_column = st.columns(2, gap="medium")
     first_text = first_column.text_input("첫 번째 수", "0.1", key="float_first").strip()
     second_text = second_column.text_input("두 번째 수", "0.2", key="float_second").strip()
