@@ -438,6 +438,25 @@ def apply_anatomy_style():
         .an-sources a { color: #2F6B2A; font-weight: 700; }
         @media (max-width: 800px) { .an-grid3 { grid-template-columns: 1fr; } }
 
+        /* 안내서 전용: 과도한 블록 간격과 여백을 줄여 학습 내용을 촘촘히 배치 */
+        .st-key-beginner_guide [data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"] {
+            gap: 0.55rem !important;
+        }
+        .st-key-beginner_guide [data-testid="stExpanderDetails"] .stMarkdown {
+            max-width: 1040px !important;
+        }
+        .st-key-beginner_guide [data-testid="stExpanderDetails"] .stMarkdown p {
+            margin: 0 0 0.45rem !important;
+        }
+        .st-key-beginner_guide [data-testid="stExpanderDetails"] [data-testid="stCode"] {
+            max-width: 800px;
+        }
+        .st-key-beginner_guide [data-testid="stExpanderDetails"] h3 {
+            margin: 10px 0 5px !important;
+        }
+        .st-key-beginner_guide [data-testid="stExpanderDetails"] h4 {
+            margin: 12px 0 5px !important;
+        }
         /* 기초 학습 안내서: 읽기 중심, 형광펜·불필요한 상자 제거 */
         .st-key-beginner_guide [data-testid="stExpander"] {
             background: #F7F8E9 !important;
