@@ -169,11 +169,11 @@ def toggle_window(state_name):
 
 
 SUPPORT_MESSAGES = [
-    "오류를 발견했다면, 해결에 한 걸음 더 가까워진 거야!",
-    "예상과 다른 결과도 중요한 발견이야.",
-    "오늘 이해한 작은 원리가 내일의 큰 실력이 될 거야.",
-    "실패한 실험도 기록하면 다음 도전의 단서가 돼!",
-    "정답보다 중요한 건 왜 그런지 끝까지 궁금해하는 마음이야.",
+    "오늘도 여기까지 온 너, 정말 잘하고 있어!",
+    "어려운 문제 앞에서도 포기하지 않는 네가 멋져!",
+    "천천히 해도 괜찮아. 넌 분명 성장하고 있어!",
+    "지금의 작은 노력이 언젠가 큰 자신감이 될 거야!",
+    "모든 걸 한 번에 이해하지 않아도 괜찮아. 널 응원해!",
 ]
 
 
@@ -192,7 +192,7 @@ def show_support_surprise():
         <div class="bt-support-surprise">
             <div class="bt-support-eyebrow">SECRET MESSAGE UNLOCKED!</div>
             <div class="bt-support-mascot">{PIXEL_COMPUTER_SVG}</div>
-            <div class="bt-support-heading">오늘도 탐구 중인 당신에게</div>
+            <div class="bt-support-heading">오늘도 열심히 탐구하는 너에게!</div>
             <div class="bt-support-message">{escape(SUPPORT_MESSAGES[message_index])}</div>
         </div>
     """)
@@ -220,7 +220,7 @@ def show_window_bar(english_name):
     """모니터 화면 맨 위 '창 제목 줄': 픽셀 컴퓨터 + BUG TRACE + 현재 위치 + 창 버튼(— □ ×)"""
     # 왼쪽 넓은 칸: 로고와 경로(HTML) / 오른쪽 좁은 칸: 진짜 창 버튼(Streamlit 버튼)
     # 버튼 칸을 [4, 1]로 넉넉하게 잡아서, 화면이 좁아도 버튼 3개가 한 줄에 들어가게 한다.
-    title_column, button_column = st.columns([4, 1], vertical_alignment="center")
+    title_column, button_column = st.columns([5, 1.2], vertical_alignment="center", gap="small")
     with title_column:
         render_html(f"""
             <div class="win-bar">
@@ -379,16 +379,16 @@ def apply_style():
 
         /* 창 제목 줄: 픽셀 컴퓨터 + BUG TRACE + 경로 + 창 버튼 */
         /* 제목 줄은 얇게: 내용이 보이는 칸을 넓히려고 그림과 글자 크기를 줄였다 */
-        .win-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 4px; border-bottom: 3px solid var(--ink); }
+        .win-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; padding-bottom: 0; border-bottom: 3px solid var(--ink); }
         .win-logo { display: flex; align-items: center; gap: 8px; }
         .win-logo .px-computer { width: 44px; height: auto; }
         .win-title { font-family: 'Press Start 2P', monospace; font-size: 1.2rem; color: var(--ink); letter-spacing: 1px; }
         .win-path { flex: 1; font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); font-size: 0.95rem; text-align: right; }
         /* 진짜 창 버튼(— □ ×): 작은 정사각형 픽셀 버튼, 오른쪽 끝에 붙인다 */
         /* flex-wrap: nowrap = 화면이 좁아도 버튼이 다음 줄로 떨어지지 않고 한 줄에 놓인다 */
-        .st-key-win_btns { justify-content: flex-end; gap: 4px; flex-wrap: nowrap !important; }
+        .st-key-win_btns { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: nowrap !important; }
         .st-key-win_btns div.stButton { padding-top: 0; }
-        .st-key-win_btns div.stButton button { min-height: 30px; width: 34px; min-width: 34px; padding: 0; margin: 3px 2px 6px; }
+        .st-key-win_btns div.stButton button { min-height: 30px; width: 34px; min-width: 34px; padding: 0; margin: 0 2px; }
         .st-key-win_btns div.stButton button p { font-family: 'Noto Sans KR', sans-serif !important; font-size: 1.1rem !important; font-weight: 900 !important; }
         .st-key-win_btns div.stButton button:hover { background: var(--lime); }
         /* 비밀 응원 팝업: 홈 화면의 픽셀 컴퓨터 SVG를 그대로 재사용 */
@@ -548,7 +548,7 @@ def apply_style():
         .bits-label { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); margin: 8px 0 4px; }
         .bits { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
         .bits .byte { display: flex; gap: 2px; }
-        .bits span { width: 20px; height: 28px; line-height: 24px; text-align: center; border: 2px solid var(--ink);
+        .bits span { width: 26px; height: 34px; line-height: 30px; font-size: 1rem; text-align: center; border: 2px solid var(--ink);
                      font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); }
         .bits .one { background: var(--lime); }
         .bits .zero { background: var(--paper); }
