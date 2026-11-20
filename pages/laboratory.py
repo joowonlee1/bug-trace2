@@ -212,10 +212,10 @@ def set_int_example(start, operator):
 
 def show_int_examples():
     """입력칸을 예시 값으로 한 번에 채우는 버튼 2개"""
-    over_column, under_column = st.columns(2)
-    over_column.button("예시: 최댓값 + 1 (오버플로)", key="int_ex_over", width="stretch",
+    over_column, under_column, _ = st.columns([1, 1, 2])
+    over_column.button("최댓값 + 1", key="int_ex_over",
                        on_click=set_int_example, args=(INT_MAX, "+"))
-    under_column.button("예시: 최솟값 − 1 (언더플로)", key="int_ex_under", width="stretch",
+    under_column.button("최솟값 − 1", key="int_ex_under",
                         on_click=set_int_example, args=(INT_MIN, "−"))
 
 
@@ -230,10 +230,10 @@ def show_int_result(start, operator, amount):
 
     if real_result > INT_MAX:          # 위쪽 끝을 넘음 → 오버플로
         result_box("diff", f"최댓값 {INT_MAX:,}을 넘어서 음수 {stored_result:,}(으)로 넘어갔어요! (정수 오버플로) "
-                           "받아올림이 맨 앞 칸(부호 비트)까지 올라가 1이 됐어요.")
+                           "32비트만 저장하는 방식에서는 결과의 부호 비트가 1로 바뀌어 음수로 해석돼요.")
     elif real_result < INT_MIN:        # 아래쪽 끝을 넘음 → 정수 언더플로
         result_box("diff", f"최솟값 {INT_MIN:,}보다 작아져서 양수 {stored_result:,}(으)로 넘어갔어요! (정수 언더플로) "
-                           "빌림 때문에 맨 앞 칸(부호 비트)이 0이 됐어요.")
+                           "32비트만 저장하는 방식에서는 결과의 부호 비트가 0으로 바뀌어 양수로 해석돼요.")
     else:
         result_box("same", "32비트 범위 안이라 수학 계산과 같아요. 위의 예시 버튼을 눌러 보세요.")
 
@@ -294,6 +294,13 @@ def run_y2038_lab():
     """같은 초를 세 종류의 시계(32비트 부호 있음·없음, 64비트)에 담아 날짜가 어떻게 읽히는지 비교한다."""
     lab_title("1초가 지나면 시계는 몇 년을 가리킬까?",
               "유닉스 시간(1970-01-01 0시부터 센 초)을 서로 다른 칸에 담고, 경계 순간 앞뒤로 1초씩 움직여 보세요.")
+    render_html("""<style>
+    .lab-clock-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+    .lab-clock-card{border:3px solid #1F4D25;background:#FAFBEF;padding:12px;display:flex;flex-direction:column;gap:9px;min-width:0}
+    .lab-clock-card b{font-size:.87rem}.lab-clock-card strong{font-size:clamp(1rem,1.6vw,1.4rem);overflow-wrap:anywhere}
+    .lab-clock-card span{font-size:.9rem}.lab-clock-card em{font-style:normal;color:#456B32;font-weight:700}
+    @media(max-width:700px){.lab-clock-grid{grid-template-columns:1fr}}
+    </style>""")
     moment_name = st.radio("살펴볼 순간", list(MOMENTS.keys()), key="y2038_moment", horizontal=True)
     offset = st.slider("그 순간에서 몇 초 지났나요?", -3, 3, 0, key="y2038_offset")
     seconds = MOMENTS[moment_name] + offset              # 실제로 흐른 초
@@ -307,7 +314,16 @@ def run_y2038_lab():
         if stored != seconds:
             broken.append(clock_name)
         lines.append(f"{mark} {clock_name:<18} : {stored:>15,}초 → {seconds_to_text(stored)}")
-    st.code("\n".join(lines))
+    cards = ""
+    for clock_name, store in CLOCK_TYPES.items():
+        stored = store(seconds)
+        stamp = seconds_to_text(stored)
+        date, time = (stamp.split(" ", 1) + [""])[:2]
+        status = "정상" if stored == seconds else "날짜 오류"
+        cards += (f'<div class="lab-clock-card"><b>{escape(clock_name)}</b>'
+                  f'<strong>{escape(date)}</strong><span>{escape(time)}</span>'
+                  f'<em>{status}</em></div>')
+    render_html('<div class="lab-clock-grid">' + cards + '</div>')
     show_bits(to_signed(seconds, 32), 32, "32비트 칸에 담긴 비트 (빨간 테두리 = 부호 비트)")
 
     if broken:
@@ -412,7 +428,7 @@ def show_float_error_chart():
 
 def draw_line_chart(values):
     """값 목록을 꺾은선 그래프(SVG 그림)로 직접 그린다. 가로축 = 더한 횟수, 세로축 = 오차"""
-    width, height, margin = 1000, 220, 30         # 그림 크기와 안쪽 여백(px). 가로로 넓게 → 글자가 지나치게 커지지 않는다
+    width, height, margin = 1000, 145, 27         # 그림 크기와 안쪽 여백(px). 가로로 넓게 → 글자가 지나치게 커지지 않는다
     largest = max(values) or 1                    # 가장 큰 오차 (0이면 나눗셈을 못 하니 1로)
     last_index = len(values) - 1
     # 각 값을 그림 위의 (x, y) 좌표로 바꾼다. SVG는 위쪽이 0이라서 y는 높이에서 빼 준다.
@@ -518,6 +534,9 @@ def run_float_underflow_lab():
 
     # 정상 수는 가수 52칸 + 숨은 1칸 = 53비트의 유효숫자, 비정규 수는 가수 칸에서 실제로 쓰는 비트만 남는다
     precision = 53 if exponent else mantissa.bit_length()
+    st.markdown("**숫자가 점점 작아지는 과정** — 정상 수 → 정밀도가 줄어드는 비정규 수 → 0")
+    stage = "0으로 반올림" if value == 0 else ("정밀도 감소" if exponent == 0 else "정상적으로 표현")
+    st.progress(min(1.0, count / max(1, len(values)-1)), text=f"{count}번 나눔 · {stage}")
     st.code(f"{count}번 나눔 → 값 = {readable_number(repr(value))}\n"
             f"상태          : {state}\n"
             f"지수 칸 값    : {exponent}  (0이 되면 더 작은 지수를 나타낼 수 없음)\n"
