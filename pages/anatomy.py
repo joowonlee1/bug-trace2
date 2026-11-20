@@ -20,7 +20,7 @@ from common import case_label, crt_frame, find_case, icon, load_cases, page_bann
 def show_beginner_guide():
     """기초 학습 안내서: 읽기 편한 교재형 레이아웃, 기존 7개 탭 유지."""
     with st.container(key="beginner_guide"):
-        with st.expander("▣ 처음이라면? 기초부터 시작하기", expanded=False):
+        with st.expander("▣ 원리 이해하기 · 필요한 내용만 펼쳐 보기", expanded=False):
             st.caption("비트와 2진수부터 오류 검출까지 · 필요한 주제만 선택해서 읽어 보세요.")
             tabs = st.tabs([
                 "비트와 2진수", "비트 수와 범위", "음수와 2의 보수",
@@ -30,8 +30,8 @@ def show_beginner_guide():
             with tabs[0]:
                 st.markdown("### 비트는 0 또는 1을 담는 한 칸")
                 st.markdown(
-                    "**1비트(bit)**는 0 또는 1을 저장하는 한 칸이에요. "
-                    "**8비트 = 1바이트(byte)**이고, 8비트로 만들 수 있는 조합은 **256가지**예요.\\n\\n"
+                    "비트와 바이트의 뜻은 위 용어 카드에서 확인하고, 여기서는 계산 원리를 살펴봐요.\n\n"
+                    "**8비트 = 1바이트(byte)**이고, 8비트로 만들 수 있는 조합은 **256가지**예요.\n\n"
                     "10진수는 오른쪽부터 1, 10, 100…의 자리 값을 사용하지만, "
                     "2진수는 오른쪽부터 **1, 2, 4, 8, 16…**의 자리 값을 사용해요."
                 )
@@ -66,7 +66,7 @@ def show_beginner_guide():
                 st.markdown(
                     "하지만 **조합 수가 곧 양수의 최댓값은 아니에요.** "
                     "같은 8비트라도 부호 없는 정수는 **0~255**, 2의 보수로 표현한 부호 있는 정수는 "
-                    "**−128~127**을 나타내요. 모두 256가지 값이에요.\\n\\n"
+                    "**−128~127**을 나타내요. 모두 256가지 값이에요.\n\n"
                     "또한 32비트 정수와 32비트 실수는 저장 규칙이 달라요. "
                     "비트 수만 보고 정확도나 범위를 단정하면 안 돼요."
                 )
@@ -75,29 +75,35 @@ def show_beginner_guide():
                 st.markdown("### 음수는 어떻게 비트로 저장할까요?")
                 st.markdown(
                     "비트에는 `−` 기호를 직접 적지 않아요. 그래서 부호 있는 정수는 보통 "
-                    "**2의 보수(two's complement)** 규칙으로 해석해요. "
+                    "**2의 보수** 규칙으로 해석해요. "
                     "8비트에서 맨 앞 비트가 0이면 0 이상, 1이면 음수로 해석돼요."
                 )
                 st.markdown("#### 5를 −5로 바꾸기")
-                st.code("5의 8비트 표현   00000101\\n0과 1 뒤집기    11111010\\n1 더하기        11111011  →  −5", language=None)
+                st.markdown("""
+<div class="btg-twos">
+  <div><b>① +5의 8비트</b><code>00000101</code></div>
+  <div><b>② 0과 1 뒤집기</b><code>11111010</code></div>
+  <div><b>③ 1 더하기</b><code>11111011</code></div>
+</div><p><strong>결과: 11111011 = −5</strong></p>
+""", unsafe_allow_html=True)
                 st.markdown(
-                    "8비트 2의 보수에서 맨 앞 자리의 값은 **−128**, 나머지는 64, 32, 16, 8, 4, 2, 1이에요.\\n\\n"
-                    "`11111011` = −128 + 64 + 32 + 16 + 8 + 2 + 1 = **−5**\\n\\n"
+                    "8비트 2의 보수에서 맨 앞 자리의 값은 **−128**, 나머지는 64, 32, 16, 8, 4, 2, 1이에요.\n\n"
+                    "`11111011` = −128 + 64 + 32 + 16 + 8 + 2 + 1 = **−5**\n\n"
                     "따라서 8비트 부호 있는 정수의 범위는 **−128~127**이에요. 0이 포함되므로 음수 쪽이 한 개 더 많아요."
                 )
 
             with tabs[3]:
                 st.markdown("### 비트 연산은 0과 1을 직접 다루는 계산이에요")
                 st.markdown(
-                    "**AND (`&`)** — 두 비트가 모두 1일 때만 1이에요. `1100 & 1010 = 1000`\\n\\n"
-                    "**XOR (`^`)** — 두 비트가 다를 때만 1이에요. `1100 ^ 1010 = 0110`\\n\\n"
-                    "**NOT (`~`)** — 비트를 뒤집어요. 4비트 기준 `1100 → 0011`\\n\\n"
+                    "**AND (`&`)** — 두 비트가 모두 1일 때만 1이에요. `1100 & 1010 = 1000`\n\n"
+                    "**XOR (`^`)** — 두 비트가 다를 때만 1이에요. `1100 ^ 1010 = 0110`\n\n"
+                    "**NOT (`~`)** — 비트를 뒤집어요. 4비트 기준 `1100 → 0011`\n\n"
                     "**왼쪽 시프트 (`<<`)** — 비트를 왼쪽으로 옮겨요. `0011 << 1 = 0110`"
                 )
                 st.markdown(
                     "Python의 `~` 연산은 정수의 비트 폭을 고정하지 않으므로, "
                     "4비트 결과를 얻으려면 별도 마스크가 필요해요. "
-                    "고정 비트 폭에서 시프트하면 범위를 벗어난 상위 비트가 잘릴 수 있어요.\\n\\n"
+                    "고정 비트 폭에서 시프트하면 범위를 벗어난 상위 비트가 잘릴 수 있어요.\n\n"
                     "특히 XOR은 뒤쪽 **오류 검출** 내용을 이해하는 기초예요."
                 )
 
@@ -126,23 +132,27 @@ def show_beginner_guide():
                     "정상적인 숫자처럼 보이는 경우가 많기 때문이에요."
                 )
                 st.code(
-                    "print(0.5 + 0.25)       # 0.75\\n"
-                    "print(0.1 + 0.3)        # 0.4\\n"
-                    "print(0.1 + 0.2)        # 0.30000000000000004\\n"
+                    "print(0.5 + 0.25)       # 0.75\n"
+                    "print(0.1 + 0.3)        # 0.4\n"
+                    "print(0.1 + 0.2)        # 0.30000000000000004\n"
                     "print(0.1 + 0.2 == 0.3) # False",
                     language="python",
                 )
                 st.markdown(
                     "`0.5`와 `0.25`는 2진수로 정확하게 저장할 수 있어요. "
                     "`0.1`과 `0.3`은 정확히 저장되지 않지만 합계가 `0.4`로 표시돼요. "
-                    "반면 `0.1 + 0.2`는 작은 차이가 화면에도 드러나요.\\n\\n"
+                    "반면 `0.1 + 0.2`는 작은 차이가 화면에도 드러나요.\n\n"
                     "**중요:** 모든 소수 계산에서 오류가 나타나는 것은 아니며, "
                     "작은 오차가 있더라도 눈에 띄지 않을 수 있어요. "
                     "특히 `==`로 실수를 정확히 비교할 때 예상과 다른 결과가 나올 수 있어요."
                 )
 
             with tabs[5]:
-                st.markdown("### IEEE 754는 실수를 저장하는 대표적인 규칙이에요")
+                st.markdown("### 부동소수점(浮動小數點) — 소수점 위치를 움직이는 표현")
+                st.markdown("**부(浮)**는 뜨다, **동(動)**은 움직이다, **소수점(小數點)**은 숫자의 점을 뜻해요. "
+                            "소수점 위치를 옮기고 지수를 조정해 큰 수와 작은 수를 표현하는 방식이에요. "
+                            "예를 들어 123.45 = 1.2345 × 10²이고, 컴퓨터는 이 원리를 2진수에 적용해요.")
+                st.markdown("#### IEEE 754는 실수를 저장하는 대표적인 규칙이에요")
                 st.markdown(
                     "실수는 정수와 달리 **부호·지수·가수 저장 영역(fraction 필드)**으로 나눠 저장해요. "
                     "과학 시간의 `1.23 × 10⁴` 같은 표기법을 2진수로 적용한 것과 비슷해요."
@@ -159,7 +169,7 @@ def show_beginner_guide():
                 st.markdown(
                     "일반적인 **정규 수**는 저장하지 않은 선행 1비트를 포함해 "
                     "**53비트 유효 정밀도**를 사용해요. 0에 아주 가까운 **비정규 수(subnormal)**는 "
-                    "유효 정밀도가 줄어들 수 있어요.\\n\\n"
+                    "유효 정밀도가 줄어들 수 있어요.\n\n"
                     "실수의 부호 비트는 정수의 2의 보수와 다르게 작동해요. "
                     "이제 현상 실험실에서 부호·지수·가수 그림을 보면 각 부분의 역할을 이해할 수 있어요."
                 )
@@ -172,8 +182,8 @@ def show_beginner_guide():
                     "이때는 검사 값을 덧붙여 오류를 찾아낼 수 있어요."
                 )
                 st.markdown(
-                    "#### 짝수 패리티\\n"
-                    "데이터와 패리티 비트를 합쳐 **1의 개수가 짝수**가 되도록 만드는 방식이에요.\\n\\n"
+                    "#### 짝수 패리티\n"
+                    "데이터와 패리티 비트를 합쳐 **1의 개수가 짝수**가 되도록 만드는 방식이에요.\n\n"
                     "데이터 `1011`에는 1이 3개이므로 패리티 비트 `1`을 붙여 `10111`로 보내요. "
                     "도착했을 때 1의 개수가 홀수라면 오류가 발생했음을 알 수 있어요."
                 )
@@ -590,6 +600,10 @@ def apply_anatomy_style():
             .btg-bits small { font-size: .68rem; }
             .btg-bits span { padding: 7px 0; }
         }
+        .btg-twos { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:10px 0; }
+        .btg-twos > div { display:flex; flex-direction:column; gap:10px; padding:14px 10px; border:2px solid #1F4D25; background:#F6F9E8; text-align:center; }
+        .btg-twos code { font-size:clamp(.85rem,1.5vw,1.15rem); overflow-wrap:anywhere; }
+        @media(max-width:680px){.btg-twos{grid-template-columns:1fr;}}
         </style>
     """)
 
@@ -600,13 +614,13 @@ apply_anatomy_style()
 
 with crt_frame("pages/anatomy.py", "ANATOMY"):
     page_banner("layers", "ROOT CAUSE", "원인 해부실", "오류가 발생하는 내부 처리 과정을 한 단계씩 추적합니다.")
-    show_beginner_guide()                                                       # 기초 개념 (선택적으로 펼치기)
     show_case_selector(all_cases)                                               # 오류 고르기
     current_case = find_case(all_cases, st.session_state["anatomy_case"])       # 고른 오류 데이터
 
     show_title(current_case)                  # ① 제목
     show_key_point(current_case)              # ② 핵심 원리 (가장 크게)
     show_terms(current_case)                  # ③ 먼저 알아 둘 용어
+    show_beginner_guide()                      # 용어 다음에 필요한 원리만 선택적으로 학습
     show_symptom_row(current_case)            # ④ 증상 · 정상이라면 · 실제로는 (+ 직접 관찰)
     show_flow(current_case)                   # ⑤ 처리 과정
     show_steps(current_case)                  # ⑥ 원인 추적 기록
