@@ -4,6 +4,8 @@
 # 실험 4가지: 정수 오버플로·언더플로 → 2038년 시계 → 0.1 + 0.2 (IEEE 754 비트) → 실수 언더플로
 # =============================================================
 
+import math
+import re
 import struct                                         # 실수를 컴퓨터가 저장하는 바이트 그대로 꺼내는 모듈
 from datetime import datetime, timedelta, timezone    # 날짜+시각, 시간 간격, 시간대 (2038년 실험에서 사용)
 from decimal import Decimal                           # 10진수를 정확하게 계산하는 자료형
@@ -49,6 +51,47 @@ BIT_STYLE = """
 .flegend b { padding: 0 6px; border: 2px solid var(--ink); }
 .flegend .s { background: #F6D5CF; } .flegend .e { background: #D6E8F7; } .flegend .m { background: var(--lime-soft); }
 .lab-guide { font-size: 0.95rem; color: var(--dim); margin: 2px 0 6px; }
+</style>
+"""
+
+
+# 사용자에게 보이는 지수 표기는 e 대신 10의 거듭제곱으로 표시한다.
+_SUPERSCRIPT = str.maketrans("-+0123456789", "⁻⁺⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def readable_number(value):
+    """숫자 또는 숫자 문자열을 읽기 쉬운 10의 거듭제곱 표기로 바꾼다."""
+    raw = str(value)
+    match = re.fullmatch(r"([+-]?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)", raw)
+    if not match:
+        return raw
+    coefficient, exponent = match.groups()
+    exponent = int(exponent)
+    return f"{coefficient} × 10{str(exponent).translate(_SUPERSCRIPT)}"
+
+
+LAB_FLOAT_STYLE = """
+<style>
+/* 현상 실험실 ③에만 적용되는 조밀한 실험 레이아웃 */
+.st-key-float_experiment [data-testid="stVerticalBlock"] { gap: .65rem !important; }
+.st-key-float_experiment [data-testid="stMarkdownContainer"] p { margin: 0 0 .25rem !important; }
+.st-key-float_experiment [data-testid="stRadio"] > div[role="radiogroup"] {
+  display: flex; flex-wrap: wrap; flex-direction: row; gap: 10px;
+}
+.st-key-float_experiment [data-testid="stRadio"] label {
+  border: 1px solid #6D8A66; background: #F4F7E9;
+  border-radius: 4px; padding: 9px 13px; margin: 0 !important;
+}
+.st-key-float_experiment [data-testid="stRadio"] label:has(input:checked) {
+  background: #DCEBB4; border: 2px solid #1F4D25;
+}
+.st-key-float_experiment [data-testid="stCode"] { max-width: 880px; }
+.float-compare { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 6px 0 12px; }
+.float-compare > div { border: 1px solid #98AB8E; background: #F6F8EE; padding: 12px; min-width: 0; }
+.float-compare strong { display: block; font-size: 1rem; color: #1F4D25; background: none !important; }
+.float-compare .value { display: block; margin: 6px 0; font-size: 1.08rem; font-weight: 750; overflow-wrap: anywhere; }
+.float-compare small { color: #415946; line-height: 1.45; }
+@media (max-width: 750px) { .float-compare { grid-template-columns: 1fr; } }
 </style>
 """
 
@@ -336,14 +379,14 @@ def show_float_result(first_text, second_text):
         return
 
     # !r (repr): 숫자를 줄이지 않고 컴퓨터가 가진 값 그대로 보여 준다.
-    st.code(f"컴퓨터 계산 (float)   : {first_text} + {second_text} = {computer_result!r}\n"
+    st.code(f"컴퓨터 계산 (float)   : {first_text} + {second_text} = {readable_number(repr(computer_result))}\n"
             f"정확한 계산 (Decimal) : {first_text} + {second_text} = {exact_result}")
     if Decimal(computer_result) == exact_result:
         result_box("same", "이번 계산 결과는 정확한 10진수 값과 일치해요. (예: 0.5 + 0.25)")
     elif computer_result == float(exact_result):
         result_box("note", "출력은 자연스러워 보여도 내부 값은 정확한 10진수 결과와 달라요. 저장·계산 중 반올림이 일어날 수 있어요.")
     else:
-        result_box("diff", f"두 결과가 달라요! 컴퓨터 계산 결과({computer_result!r})는 정확한 값({exact_result})과 다른 수예요.")
+        result_box("diff", f"두 결과가 달라요! 컴퓨터 계산 결과({readable_number(repr(computer_result))})는 정확한 값({exact_result})과 다른 수예요.")
 
     # Decimal(float값): 컴퓨터 안에 '실제로' 저장된 값을 끝까지 보여 준다.
     st.markdown("**컴퓨터 안에 실제로 저장된 값** (저장하는 순간 이미 조금 달라요)")
@@ -364,7 +407,7 @@ def show_float_error_chart():
         exact = Decimal(count) / Decimal(10)           # 정확한 값 (count × 0.1)
         errors.append(float(abs(Decimal(total) - exact)))   # 둘의 차이 = 오차
     draw_line_chart(errors)
-    st.caption(f"0.1을 {repeat_count}번 더한 결과: {total!r} (정확한 값: {Decimal(repeat_count) / Decimal(10)})")
+    st.caption(f"0.1을 {repeat_count}번 더한 결과: {readable_number(repr(total))} (정확한 값: {Decimal(repeat_count) / Decimal(10)})")
 
 
 def draw_line_chart(values):
@@ -384,7 +427,7 @@ def draw_line_chart(values):
             <line x1="{margin}" y1="{height - margin}" x2="{width - margin}" y2="{height - margin}" stroke="#1F4D25" stroke-width="3"/>
             <line x1="{margin}" y1="{margin}" x2="{margin}" y2="{height - margin}" stroke="#1F4D25" stroke-width="3"/>
             <polyline points="{' '.join(points)}" fill="none" stroke="#A23A2E" stroke-width="3" stroke-linejoin="bevel"/>
-            <text x="{margin + 4}" y="{margin - 8}" font-size="13" fill="#1F4D25">최대 오차 {largest:.1e}</text>
+            <text x="{margin + 4}" y="{margin - 8}" font-size="13" fill="#1F4D25">최대 오차 {readable_number(format(largest, '.1e'))}</text>
             <text x="{margin}" y="{height - 8}" font-size="13" fill="#1F4D25">1번</text>
             <text x="{width - margin}" y="{height - 8}" font-size="13" fill="#1F4D25" text-anchor="end">{len(values)}번 더함</text>
         </svg>
@@ -392,46 +435,46 @@ def draw_line_chart(values):
 
 
 def show_float_prediction():
-    """계산 전에 결과를 예상하고, 서로 다른 세 가지 경우를 비교한다."""
-    st.markdown("##### 먼저 예상해 보기")
-    st.markdown(
-        "일반 계산기에서는 대부분 `0.3`으로 보이지만, "
-        "Python의 `float` 계산에서는 어떤 결과가 나올까요?"
-    )
+    """예측 → 결과 확인 → 세 가지 계산 비교를 한 화면에 배치한다."""
+    st.markdown("#### 01 · 먼저 결과를 예상해 보세요")
+    st.caption("일반 계산기에는 0.3으로 보이지만, Python으로 계산하면 어떨까요?")
+    options = ["0.3", "0.30000000000000004", "계산할 수 없음"]
     choice = st.radio(
-        "0.1 + 0.2의 Python 출력 결과는?",
-        ["0.3", "0.30000000000000004", "계산할 수 없어 오류가 발생한다"],
-        key="float_prediction_choice",
-        index=None,
+        "0.1 + 0.2의 Python 출력 결과는?", options,
+        key="float_prediction_choice", index=None, horizontal=True,
+        label_visibility="collapsed",
     )
-    if st.button("예상 결과 확인", key="float_prediction_reveal", disabled=choice is None):
+    if st.button("계산 실행 · 정답 확인", key="float_prediction_reveal", disabled=choice is None):
         st.session_state["float_prediction_shown"] = True
+        st.session_state["float_prediction_answer"] = choice
     if st.session_state.get("float_prediction_shown", False):
-        if choice == "0.30000000000000004":
-            st.success("정답이에요! Python의 일반적인 64비트 부동소수점 계산 결과예요.")
+        answer = st.session_state.get("float_prediction_answer")
+        if answer == options[1]:
+            st.success("정확해요! Python에서는 0.30000000000000004로 표시돼요.")
         else:
-            st.info("실제 출력은 0.30000000000000004예요. 프로그램이 고장 난 것은 아니에요.")
-        st.code("print(0.1 + 0.2)\n# 0.30000000000000004\nprint(0.1 + 0.2 == 0.3)\n# False", language="python")
-    st.markdown("##### 같은 덧셈인데 왜 결과가 다르게 보일까요?")
+            st.info("실제 출력은 0.30000000000000004예요. 계산기가 고장 난 것이 아니라 저장 방식의 차이예요.")
+        st.code("print(0.1 + 0.2)  # 0.30000000000000004\nprint(0.1 + 0.2 == 0.3)  # False", language="python")
+    st.markdown("#### 02 · 같은 덧셈인데 왜 다르게 보일까요?")
     comparison = [
-        ("0.5 + 0.25", 0.5, 0.25, "두 수 모두 2진수로 정확히 저장할 수 있어요."),
-        ("0.1 + 0.3", 0.1, 0.3, "저장 오차는 있지만 결과가 0.4로 표시돼요."),
-        ("0.1 + 0.2", 0.1, 0.2, "작은 오차가 출력 결과에도 드러나요."),
+        ("0.5 + 0.25", "0.75", "두 수 모두 2진수로 정확하게 저장돼요."),
+        ("0.1 + 0.3", "0.4", "저장 오차는 있지만 출력에서는 드러나지 않아요."),
+        ("0.1 + 0.2", "0.30000000000000004", "작은 오차가 출력에도 나타나요."),
     ]
-    for label, left, right, explanation in comparison:
-        st.markdown(f"**`{label}` → `{left + right!r}`**  \n{explanation}")
-    st.caption(
-        "표시가 정상이라고 해서 내부 저장값까지 정확한 것은 아니에요. "
-        "반대로 모든 소수 계산에서 눈에 보이는 오차가 발생하는 것도 아니에요."
+    cards = "".join(
+        f'<div><strong>{escape(expr)}</strong><span class="value">{escape(result)}</span><small>{escape(note)}</small></div>'
+        for expr, result, note in comparison
     )
-    st.divider()
-    st.markdown("##### 직접 숫자를 바꿔 계산하기")
+    render_html(f'<div class="float-compare">{cards}</div>')
+    st.caption("정상적으로 표시돼도 내부 저장값에는 오차가 있을 수 있어요. 모든 소수 계산에서 오차가 보이는 것은 아니에요.")
+    st.markdown("#### 03 · 직접 숫자를 바꿔 계산하기")
 
 
 def run_float_error_lab():
     """두 소수를 더해서 컴퓨터 계산 결과와 정확한 값을 비교하고, 저장된 비트와 쌓이는 오차를 보여 준다."""
-    lab_title("0.1 + 0.2는 정말 0.3일까?", "두 수를 바꿔 넣어 보세요. 0.5 + 0.25처럼 2진수로 딱 떨어지는 수는 오차가 없어요.")
-    show_float_prediction()
+    render_html(LAB_FLOAT_STYLE)
+    with st.container(key="float_experiment"):
+        lab_title("0.1 + 0.2는 정말 0.3일까?", "결과를 예상한 다음, 실제 계산과 비교해 보세요.")
+        show_float_prediction()
     first_column, second_column = st.columns(2, gap="medium")
     first_text = first_column.text_input("첫 번째 수", "0.1", key="float_first").strip()
     second_text = second_column.text_input("두 번째 수", "0.2", key="float_second").strip()
@@ -459,7 +502,7 @@ def halving_steps(start):
 def run_float_underflow_lab():
     """아주 작은 수를 계속 반으로 나누며 정상 수 → 비정규 수 → 0이 되는 과정을 비트로 확인한다."""
     lab_title("아주 작은 수를 계속 반으로 나누면?",
-              f"{UNDERFLOW_START}을(를) 2로 계속 나눠요. 슬라이더로 나눈 횟수를 바꾸며 지수 칸(파랑)과 가수 칸(라임)을 보세요.")
+              f"{readable_number(UNDERFLOW_START)}을(를) 2로 계속 나눠요. 슬라이더로 나눈 횟수를 바꾸며 지수 칸(파랑)과 가수 칸(라임)을 보세요.")
     values = halving_steps(UNDERFLOW_START)
     first_subnormal = next(i for i, v in enumerate(values) if float_parts(v)[0] == 0)   # 처음으로 지수 칸이 모두 0이 된 횟수
     count = st.slider("2로 나눈 횟수", 0, len(values) - 1, first_subnormal - 1, key="uf_count")
@@ -468,16 +511,16 @@ def run_float_underflow_lab():
 
     # 정상 수는 가수 52칸 + 숨은 1칸 = 53비트의 유효숫자, 비정규 수는 가수 칸에서 실제로 쓰는 비트만 남는다
     precision = 53 if exponent else mantissa.bit_length()
-    st.code(f"{count}번 나눔 → 값 = {value!r}\n"
+    st.code(f"{count}번 나눔 → 값 = {readable_number(repr(value))}\n"
             f"상태          : {state}\n"
             f"지수 칸 값    : {exponent}  (0이 되면 더 작은 지수를 나타낼 수 없음)\n"
             f"남은 유효 비트 : {precision} / 53")
     show_float_bits(value, f"{count}번 나눈 값의 64비트")
 
-    st.code(f"{first_subnormal - 1:>3}번 : 마지막 정상 수   {values[first_subnormal - 1]!r}\n"
-            f"{first_subnormal:>3}번 : 첫 비정규 수     {values[first_subnormal]!r}\n"
-            f"{len(values) - 2:>3}번 : 가장 작은 수     {values[-2]!r}\n"
-            f"{len(values) - 1:>3}번 : 0이 되어 사라짐  {values[-1]!r}")
+    st.code(f"{first_subnormal - 1:>3}번 : 마지막 정상 수   {readable_number(repr(values[first_subnormal - 1]))}\n"
+            f"{first_subnormal:>3}번 : 첫 비정규 수     {readable_number(repr(values[first_subnormal]))}\n"
+            f"{len(values) - 2:>3}번 : 가장 작은 수     {readable_number(repr(values[-2]))}\n"
+            f"{len(values) - 1:>3}번 : 0이 되어 사라짐  {readable_number(repr(values[-1]))}")
     if value == 0.0:
         result_box("diff", "더 작은 수를 담을 칸이 없어서 값이 0이 되어 사라졌어요! (부동소수점 언더플로)")
     elif exponent == 0:
