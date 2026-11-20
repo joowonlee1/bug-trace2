@@ -249,7 +249,7 @@ def show_int_result(start, operator, amount):
 def run_int_overflow_lab():
     """32비트 정수에 더하거나 빼 보며 오버플로·언더플로와 2의 보수를 확인한다."""
     lab_title("가장 큰 수에 1을 더하면? 가장 작은 수에서 1을 빼면?",
-              "가정: 부호 있는 32비트 정수에서, 칸 밖으로 넘친 비트를 그냥 버리는 경우 (C·Java의 int와 같은 방식)")
+              "가정: 부호 있는 32비트 정수에서, 칸 밖으로 넘친 비트를 그냥 버리는 경우")
     # 처음 들어왔을 때의 입력값 (예시 버튼이 session_state로 값을 바꾸므로, 입력칸에는 value=를 따로 주지 않는다)
     st.session_state.setdefault("int_start", INT_MAX)
     st.session_state.setdefault("int_operator", "+")
@@ -434,6 +434,12 @@ def draw_line_chart(values):
     """)
 
 
+def reset_float_prediction():
+    """선택지가 바뀌면 이전에 공개한 정답을 숨긴다."""
+    st.session_state["float_prediction_shown"] = False
+    st.session_state.pop("float_prediction_answer", None)
+
+
 def show_float_prediction():
     """예측 → 결과 확인 → 세 가지 계산 비교를 한 화면에 배치한다."""
     st.markdown("#### 01 · 먼저 결과를 예상해 보세요")
@@ -443,6 +449,7 @@ def show_float_prediction():
         "0.1 + 0.2의 Python 출력 결과는?", options,
         key="float_prediction_choice", index=None, horizontal=True,
         label_visibility="collapsed",
+        on_change=reset_float_prediction,
     )
     if st.button("계산 실행 · 정답 확인", key="float_prediction_reveal", disabled=choice is None):
         st.session_state["float_prediction_shown"] = True
