@@ -163,7 +163,7 @@ def icon(name):
 
 
 def toggle_window(state_name):
-    """창 상태(최소화 'win_min' / 최대화 'win_max')를 켜고 끈다. True ↔ False"""
+    """최대화 상태를 켜고 끈다."""
     # .get(이름, False): 저장된 값이 없으면 False(꺼짐)로 본다. not → 반대로 바꾼다.
     st.session_state[state_name] = not st.session_state.get(state_name, False)
 
@@ -212,7 +212,6 @@ def show_window_buttons():
         st.button("❐" if is_max else "□", key="win_max_btn", help="최대화 / 원래 크기", on_click=toggle_window, args=("win_max",))
         # × 닫기: 프로그램을 닫듯이 첫 화면으로 돌아간다
         if st.button("×", key="win_close_btn", help="닫고 첫 화면으로"):
-            st.session_state["win_min"] = False
             st.switch_page("pages/home.py")
 
 
@@ -220,16 +219,17 @@ def show_window_bar(english_name):
     """모니터 화면 맨 위 '창 제목 줄': 픽셀 컴퓨터 + BUG TRACE + 현재 위치 + 창 버튼(— □ ×)"""
     # 왼쪽 넓은 칸: 로고와 경로(HTML) / 오른쪽 좁은 칸: 진짜 창 버튼(Streamlit 버튼)
     # 버튼 칸을 [4, 1]로 넉넉하게 잡아서, 화면이 좁아도 버튼 3개가 한 줄에 들어가게 한다.
-    title_column, button_column = st.columns([5, 1.2], vertical_alignment="center", gap="small")
-    with title_column:
-        render_html(f"""
-            <div class="win-bar">
-                <div class="win-logo">{PIXEL_COMPUTER_SVG}<span class="win-title">BUG TRACE</span></div>
-                <div class="win-path">C:\\BUG_TRACE\\{escape(english_name)}&gt;</div>
-            </div>
-        """)
-    with button_column:
-        show_window_buttons()
+    with st.container(key="crt_titlebar"):
+        title_column, button_column = st.columns([8, 2], vertical_alignment="center", gap=None)
+        with title_column:
+            render_html(f"""
+                <div class="win-bar">
+                    <div class="win-logo">{PIXEL_COMPUTER_SVG}<span class="win-title">BUG TRACE</span></div>
+                    <div class="win-path">C:\\BUG_TRACE\\{escape(english_name)}&gt;</div>
+                </div>
+            """)
+        with button_column:
+            show_window_buttons()
     if st.session_state.get("support_surprise_open", False):
         show_support_surprise()
 
@@ -264,7 +264,6 @@ def show_monitor_panel():
         with st.container(key="power"):
             # 전원 버튼: 컴퓨터를 껐다 켜듯이 첫 화면으로 돌아간다
             if st.button("", key="power_btn", icon=":material/power_settings_new:", help="전원: 첫 화면으로"):
-                st.session_state["win_min"] = False
                 st.session_state["win_max"] = False
                 st.switch_page("pages/home.py")
 
@@ -274,18 +273,14 @@ def show_monitor_panel():
 @contextmanager
 def crt_frame(current_page, english_name):
     """레트로 CRT 모니터를 그리고, 그 화면 안에 페이지 내용을 담는다. 창 버튼(— □ ×) 상태도 반영한다."""
-    is_min = False  # 기존 최소화 기능을 사용하지 않고 학습 화면을 항상 유지한다.
     is_max = st.session_state.get("win_max", False)    # 최대화 중인가?
     # 최대화 중이면 바깥 틀 이름을 "crt_max"로 바꿔서 CSS로 틀을 얇게, 아래 패널은 숨긴다.
     with st.container(key="crt_max" if is_max else "crt"):     # 모니터 바깥 틀 (베이지 플라스틱)
         with st.container(key="crt_screen"):                    # 모니터 화면 (연두빛 형광 화면)
             show_window_bar(english_name)                      # 1) 창 제목 줄 (+ 진짜 창 버튼) → 화면 위에 고정
             show_nav(current_page)                             # 2) 메뉴 버튼 → 화면 위에 고정
-            if is_min:
-                render_html('<div class="win-min-note">▁ 창이 최소화되어 있어요. 오른쪽 위 <b>—</b> 버튼을 다시 누르면 펼쳐져요.</div>')
-            # 3) 페이지 내용 상자: 높이를 정해 두고(CSS) 이 상자 안에서만 스크롤된다. → 모니터는 움직이지 않는다
-            #    최소화 중이면 상자 이름을 "win_hidden"으로 바꿔서 CSS로 숨긴다. (코드는 그대로 실행됨)
-            with st.container(key="win_hidden" if is_min else "win_body"):
+            # 3) 페이지 내용 상자: 이 상자 안에서 스크롤된다.
+            with st.container(key="win_body"):
                 yield                                          # ← 여기에 각 페이지의 내용이 들어간다
         if not is_max:
             show_monitor_panel()                               # 4) 모니터 아래쪽 (최대화 중에는 숨김)
@@ -383,7 +378,16 @@ def apply_style():
         .win-logo { display: flex; align-items: center; gap: 8px; }
         .win-logo .px-computer { width: 44px; height: auto; }
         .win-title { font-family: 'Press Start 2P', monospace; font-size: 1.2rem; color: var(--ink); letter-spacing: 1px; }
-        .win-path { flex: 1; font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); font-size: 0.95rem; text-align: right; }
+        .win-path { flex: 1; min-width: 0; font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); font-size: 0.95rem; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* 제목과 버튼을 동일한 높이의 한 줄로 정렬한다. */
+        .st-key-crt_titlebar [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: minmax(0, 1fr) 132px !important; gap: 0 !important; align-items: center !important; }
+        .st-key-crt_titlebar [data-testid="stColumn"] { min-width: 0 !important; width: 100% !important; }
+        .st-key-crt_titlebar [data-testid="stColumn"] > div { min-width: 0 !important; }
+        .st-key-crt_titlebar .win-bar { height: 40px; min-height: 40px; padding: 0 8px 0 0; border-bottom: 0; justify-content: flex-start; gap: 12px; }
+        .st-key-crt_titlebar .win-path { flex: 0 1 auto; }
+        .st-key-crt_titlebar .st-key-win_btns { height: 40px; justify-content: flex-end; gap: 5px; }
+        .st-key-crt_titlebar .st-key-win_btns div.stButton button { width: 38px; min-width: 38px; height: 36px; min-height: 36px; margin: 0; }
+        .st-key-crt_titlebar [data-testid="stVerticalBlock"] { gap: 0 !important; }
         /* 진짜 창 버튼(— □ ×): 작은 정사각형 픽셀 버튼, 오른쪽 끝에 붙인다 */
         /* flex-wrap: nowrap = 화면이 좁아도 버튼이 다음 줄로 떨어지지 않고 한 줄에 놓인다 */
         .st-key-win_btns { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: nowrap !important; }
@@ -423,9 +427,6 @@ def apply_style():
             max-width: 430px;
             margin: 0 auto;
         }
-        /* 최소화: 내용 상자를 숨기고 안내 한 줄만 보여 준다 */
-        .st-key-win_hidden { display: none !important; }
-        .win-min-note { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); background: var(--paper); border: 3px dashed var(--ink); padding: 10px 14px; }
         /* 최대화: 베이지 틀을 얇게 줄여서 화면이 브라우저를 꽉 채운다 */
         .st-key-crt_max { background: #D9CCAE; border: 3px solid #B9A884; border-radius: 16px; padding: 6px; gap: 0; }
 
@@ -546,9 +547,9 @@ def apply_style():
         /* 0과 1을 픽셀 칸으로 (현상 실험실 · 오류 검출에서 함께 사용)
            .one = 1(라임) / .zero = 0 / .sign = 부호 비트(빨간 테두리) / .flip = 뒤집힌 칸(빨강) / .par = 패리티 칸(파랑) */
         .bits-label { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); margin: 8px 0 4px; }
-        .bits { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
-        .bits .byte { display: flex; gap: 2px; }
-        .bits span { width: 26px; height: 34px; line-height: 30px; font-size: 1rem; text-align: center; border: 2px solid var(--ink);
+        .bits { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; max-width: 100%; }
+        .bits .byte { display: flex; gap: 3px; }
+        .bits span { box-sizing: border-box; width: 31px; height: 40px; line-height: 35px; font-size: 1.13rem; text-align: center; border: 2px solid var(--ink);
                      font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); }
         .bits .one { background: var(--lime); }
         .bits .zero { background: var(--paper); }
@@ -577,10 +578,6 @@ def apply_style():
         /* !important: Streamlit이 상자에 자동으로 넣는 높이 설정보다 우선하게 한다 */
         .st-key-win_body { flex: 1 1 0 !important; min-height: 0 !important; height: auto !important; max-height: none !important;
                            overflow-y: auto !important; overflow-x: hidden; padding: 4px 14px 24px 4px; }
-        /* 최소화 중에는 내용이 없으니 모니터를 내용 높이만큼만 */
-        [data-testid="stLayoutWrapper"]:has(> .st-key-crt .st-key-win_hidden) { height: auto; }
-        .st-key-crt:has(.st-key-win_hidden), .st-key-crt:has(.st-key-win_hidden) .st-key-crt_screen,
-        .st-key-crt:has(.st-key-win_hidden) [data-testid="stLayoutWrapper"]:has(> .st-key-crt_screen) { flex: none; }
         /* 스크롤 막대도 픽셀 느낌으로 */
         .st-key-win_body::-webkit-scrollbar { width: 14px; }
         .st-key-win_body::-webkit-scrollbar-track { background: var(--lime-soft); border-left: 3px solid var(--ink); }
