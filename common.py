@@ -336,6 +336,10 @@ def apply_style():
         .st-key-win_body [data-testid="stMarkdownContainer"]:has(> svg) { margin-bottom: 0 !important; }
 
         /* ===== 4) 글꼴 ===== */
+        /* HTML로 그린 글(상자·카드)도 본문 글꼴로: 예전에는 Streamlit 기본 글꼴(Source Sans)이 섞여서
+           괄호·숫자·화살표만 다른 모양으로 보였다. 픽셀 글꼴 같은 따로 정한 글꼴은 그대로 유지된다.
+           word-break: keep-all = 한글 낱말 중간에서 줄을 바꾸지 않는다 (예: '못한/다'처럼 한 글자만 넘어가지 않게) */
+        [data-testid="stMarkdownContainer"] { font-family: 'Noto Sans KR', sans-serif; word-break: keep-all; overflow-wrap: break-word; }
         .stMarkdown p, .stMarkdown li, [data-testid="stWidgetLabel"] p {
             font-family: 'Noto Sans KR', sans-serif; font-size: 1.02rem; line-height: 1.75; color: var(--text);
         }
@@ -344,7 +348,9 @@ def apply_style():
            제목·설명처럼 읽어야 하는 글은 본문 글꼴(Noto Sans KR)로 → 레트로 느낌은 살리고 읽기는 편하게 */
         h1, h2, h3, h4 { font-family: 'Noto Sans KR', sans-serif !important; font-weight: 800 !important; color: var(--ink) !important; line-height: 1.35 !important; padding: 0.2rem 0 !important; letter-spacing: -0.3px; }
         h2 { font-size: 1.45rem !important; } h3 { font-size: 1.15rem !important; }
-        code, pre { font-family: 'Nanum Gothic Coding', monospace !important; }
+        code, pre { font-family: 'Nanum Gothic Coding', 'Noto Sans KR', monospace !important; }
+        /* 코드 상자(계산 결과 등) 글자가 다른 글보다 작아 보여서 본문과 비슷한 크기로 키운다 */
+        [data-testid="stCode"] pre, [data-testid="stCode"] code { font-size: 1.02rem !important; line-height: 1.65 !important; }
         .stMarkdown code { font-size: 0.98rem !important; font-weight: 700; color: var(--ink) !important; }   /* 글 사이의 짧은 예시(10111 등)가 잘 보이게 */
         .bt-icon {
             font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal; font-size: 1.15em;
@@ -357,13 +363,13 @@ def apply_style():
         .st-key-crt {
             background: linear-gradient(165deg, #F6EEDC 0%, #E6D8BA 55%, #D2C2A0 100%);
             border: 3px solid #B9A884; border-radius: clamp(22px, 3vw, 46px);
-            padding: clamp(10px, 1.6vw, 26px) clamp(14px, 3vw, 50px) clamp(6px, 0.8vw, 12px); gap: 0;
+            padding: clamp(8px, 1.2vw, 18px) clamp(14px, 3vw, 50px) clamp(6px, 0.8vw, 12px); gap: 0;   /* 위쪽 여백을 줄여 내용 칸을 넓힌다 */
             box-shadow: inset 0 5px 0 #FFFAEC, inset 0 -8px 0 #C6B490, 0 20px 34px rgba(70, 55, 30, .30);
         }
         /* 화면: 가운데는 밝고 가장자리는 초록빛으로 어두워지는 CRT 유리 + 가로 주사선 + 진한 초록 테두리
            box-shadow 바깥쪽 고리 2개 = 화면이 플라스틱 틀 안으로 쏙 들어간 '홈'처럼 보이게 한다 */
         .st-key-crt_screen {
-            border-radius: clamp(18px, 2.6vw, 40px); padding: clamp(8px, 1vw, 16px) clamp(12px, 1.8vw, 30px); gap: 0.4rem;
+            border-radius: clamp(18px, 2.6vw, 40px); padding: clamp(6px, 0.7vw, 10px) clamp(12px, 1.8vw, 30px) clamp(8px, 1vw, 16px); gap: 0.3rem;
             background:
                 repeating-linear-gradient(0deg, rgba(31, 77, 37, .07) 0px, rgba(31, 77, 37, .07) 1px, transparent 2px, transparent 4px),
                 radial-gradient(ellipse at 50% 45%, #F8FBEA 0%, #EEF5D6 55%, #D9E8AE 85%, #B7D27F 100%);
@@ -392,6 +398,19 @@ def apply_style():
         /* flex-wrap: nowrap = 화면이 좁아도 버튼이 다음 줄로 떨어지지 않고 한 줄에 놓인다 */
         .st-key-win_btns { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: nowrap !important; }
         .st-key-win_btns div.stButton { padding-top: 0; }
+        /* '작은 크기' 디자인: key가 compact_로 시작하는 상자 안의 버튼·선택지는 작게 그린다.
+           (예시 버튼처럼 보조 역할인 버튼까지 큰 버튼이면 화면을 불필요하게 차지해서, 역할에 맞게 크기를 나눴다) */
+        [class*="st-key-compact_"] { gap: 6px; flex-wrap: wrap; justify-content: flex-start !important; }
+        /* 안의 요소가 남는 폭을 다 차지하지 않고 내용만큼만 → 양끝으로 벌어지지 않고 왼쪽부터 붙어 놓인다 */
+        [class*="st-key-compact_"] > [data-testid="stElementContainer"] { width: auto !important; flex: 0 0 auto !important; }
+        /* 글 속의 짧은 코드(예: 01000010)가 너무 작아 보여서 주변 글자와 비슷하게 */
+        [data-testid="stMarkdownContainer"] code { font-size: 0.95em !important; }
+        [class*="st-key-compact_"] div.stButton { padding-top: 0; }
+        [class*="st-key-compact_"] div.stButton button { min-height: 34px; padding: 2px 12px; margin: 4px 4px 8px; }
+        [class*="st-key-compact_"] div.stButton button p { font-size: 0.92rem !important; }
+        [class*="st-key-compact_"] div[data-testid="stRadio"] > div[role="radiogroup"] > label { min-height: 34px; min-width: 62px; padding: 2px 10px; margin: 3px; }
+        [class*="st-key-compact_"] div[data-testid="stRadio"] > div[role="radiogroup"] > label p { font-size: 0.92rem !important; }
+        .compact-label { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 0.92rem; margin: 0 2px 0 6px; white-space: nowrap; }
         .st-key-win_btns div.stButton button { min-height: 30px; width: 34px; min-width: 34px; padding: 0; margin: 0 2px; }
         .st-key-win_btns div.stButton button p { font-family: 'Noto Sans KR', sans-serif !important; font-size: 1.1rem !important; font-weight: 900 !important; }
         .st-key-win_btns div.stButton button:hover { background: var(--lime); }
@@ -596,7 +615,7 @@ def apply_style():
         .bt-term-name { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 1rem; margin-bottom: 4px; }
         .bt-term-desc { font-size: 0.95rem; line-height: 1.6; color: var(--text); }
 
-        /* ===== 11-4) 구역 제목 (SYMPTOM · 어떤 현상인가 등) ===== */
+        /* ===== 11-4) 구역 제목 (어떤 현상인가 등) ===== */
         .sec-label { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 1.08rem;
                      border-bottom: 3px solid var(--ink); padding-bottom: 4px; margin: 22px 0 10px; }
 
