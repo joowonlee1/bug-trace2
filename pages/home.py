@@ -59,6 +59,9 @@ def apply_home_style():
         .home-intro { max-width: 900px; margin: 1.6vh auto 0.4vh; text-align: center; }
         .home-intro-main { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: clamp(1.05rem, 1.5vw, 1.5rem); line-height: 1.6; }
         .home-intro-sub { color: var(--dim); font-size: clamp(0.92rem, 1.05vw, 1.1rem); margin-top: 6px; }
+        /* 화면 배율 안내: 눈에 띄지만 크지 않게, 점선 테두리의 작은 띠 */
+        .home-zoom { display: inline-block; margin-top: 8px; padding: 3px 12px; border: 2px dashed var(--ink); background: #FBFDF1;
+                     color: var(--ink); font-size: clamp(0.82rem, 0.95vw, 0.98rem); }
         .home-chips { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 1.4vh 0 1.8vh; }
         .home-chips span { font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); font-size: 0.95rem; background: #FBFDF1; border: 3px solid var(--ink); padding: 4px 12px; }
 
@@ -110,6 +113,7 @@ def show_intro():
         <div class="home-intro">
             <div class="home-intro-main">조회수가 갑자기 음수가 되고, 0.1 + 0.2가 0.3이 아닌 이유는?<br>숫자 저장의 한계를 추적하는 디지털 오류 연구소</div>
             <div class="home-intro-sub">2가지 사례를 공식 문서를 근거로 깊이 추적하고, 직접 계산해서 확인해요.</div>
+            <div class="home-zoom">🖥️ 브라우저 화면 배율 <b>100%</b>에서 가장 잘 보여요 · 배율이 다르면 <b>Ctrl + 0</b>을 눌러 맞춰 주세요</div>
             <div class="home-chips"><span>정수 오버플로·언더플로</span><span>2038년 문제</span><span>실수 정밀도 오차·언더플로</span><span>오류 검출</span></div>
         </div>
     """)
