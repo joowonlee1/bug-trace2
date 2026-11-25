@@ -67,9 +67,9 @@ def flip_bits(data, positions):
 # 2. 설명 화면
 # -------------------------------------------------------------
 
-def section_label(icon_name, english, korean):
+def section_label(icon_name, title):
     """각 구역 위에 붙는 작은 제목"""
-    return f'<div class="sec-label">{icon(icon_name)} {english} · {korean}</div>'
+    return f'<div class="sec-label">{icon(icon_name)} {title}</div>'
 
 
 def show_why_damaged():
@@ -79,7 +79,7 @@ def show_why_damaged():
         for icon_name, name, desc in DAMAGE_CAUSES
     )
     render_html(f"""
-        {section_label("report", "WHY", "데이터는 왜 망가질까")}
+        {section_label("report", "데이터는 왜 망가질까")}
         <div class="bt-box">데이터는 결국 0과 1(비트)이에요. 보내거나 저장하는 도중에 <b>비트 하나가 0↔1로 뒤집히면</b>
         글자·숫자·사진이 다른 값이 돼요. BUG-001·002는 <b>계산 규칙</b> 때문에 생긴 오류였다면, 여기서 다루는 것은 <b>전달 도중</b> 생기는 오류예요.</div>
         <div class="bt-terms">{cards}</div>
@@ -89,7 +89,7 @@ def show_why_damaged():
 def show_main_idea():
     """② 오류 검출의 핵심 아이디어: 보내는 쪽이 확인값을 붙이고, 받는 쪽이 다시 계산해서 비교한다."""
     render_html(f"""
-        {section_label("lightbulb", "IDEA", "핵심 아이디어")}
+        {section_label("lightbulb", "핵심 아이디어")}
         <div class="bt-flow">
             <div class="bt-flow-box">{icon("upload")}<div class="bt-flow-name">보내는 쪽</div><div class="bt-flow-text">데이터로 확인값을 계산해서 데이터 뒤에 붙여 보낸다</div></div>
             <div class="bt-flow-arrow">▶</div>
@@ -97,7 +97,7 @@ def show_main_idea():
             <div class="bt-flow-arrow">▶</div>
             <div class="bt-flow-box">{icon("download")}<div class="bt-flow-name">받는 쪽</div><div class="bt-flow-text">받은 데이터로 확인값을 다시 계산해서, 함께 온 확인값과 비교한다</div></div>
         </div>
-        <div class="bt-keypoint">{icon("fact_check")}<div><div class="bt-keypoint-label">KEY POINT · 이것만 기억하세요</div>
+        <div class="bt-keypoint">{icon("fact_check")}<div><div class="bt-keypoint-label">이것만 기억하세요</div>
         <div class="bt-keypoint-text">두 확인값이 다르면 '오는 길에 망가졌다'는 것을 알 수 있어요. 같으면 아마도 그대로 온 거예요.</div></div></div>
     """)
 
@@ -105,7 +105,7 @@ def show_main_idea():
 def show_parity_explain():
     """실험 전 짝수·홀수 패리티를 먼저 비교한다."""
     render_html(f"""
-        {section_label("help", "PARITY", "실험 전: 짝수 패리티와 홀수 패리티")}
+        {section_label("help", "실험 전: 짝수 패리티와 홀수 패리티")}
         <div class="bt-box dt-explain">
           <p><b>패리티 비트</b>는 데이터가 전달되는 동안 비트가 바뀌었는지 검사하려고 덧붙이는 한 칸이에요.</p>
           <div class="dt-parity-grid">
@@ -123,7 +123,7 @@ def show_parity_explain():
 def show_parity_steps():
     """③-2 패리티 비트를 붙이는 순서를 글자 'B' 예시로 보여 준다."""
     render_html(f"""
-        {section_label("format_list_numbered", "STEP", "글자 B로 따라 해 보기 (짝수 패리티)")}
+        {section_label("format_list_numbered", "글자 B로 따라 해 보기 (짝수 패리티)")}
         <div class="an-steps">
             <div class="an-step"><span class="bt-step-no">#01</span><div class="an-step-text">글자 <b>B</b>를 비트로 바꾸면 <code>01000010</code>이에요.</div></div>
             <div class="an-step"><span class="bt-step-no">#02</span><div class="an-step-text">1의 개수를 세요. <code>0<b>1</b>0000<b>1</b>0</code> → <b>2개</b> (짝수)</div></div>
@@ -195,7 +195,7 @@ def show_verdict(positions, caught, checksum_caught):
 
 def run_detection_lab():
     """④ 직접 실험: 글자를 비트로 바꿔 보내는 중에 비트를 1~2개 뒤집고, 패리티와 XOR 체크섬이 알아채는지 확인한다."""
-    render_html(section_label("science", "TRY IT", "직접 비트를 뒤집어 보기"))
+    render_html(section_label("science", "직접 비트를 뒤집어 보기"))
     render_html("""<div class="bt-box dt-explain"><b>실험 방법</b>
       <p>① 보낼 글자를 입력해요. ② 뒤집을 비트 ①에 1 이상의 번호를 넣어요. (0은 변경하지 않음)</p>
       <p>③ 보낸 데이터와 받은 데이터의 빨간색 비트를 비교해요. ④ 비트 ②도 바꿔 두 검사 방법의 차이를 관찰해요.</p>
@@ -232,7 +232,7 @@ def run_detection_lab():
 def show_stronger_methods():
     """⑤⑥ 패리티의 한계 → XOR 체크섬 → CRC 순서로 점점 강해지는 방법을 자세히 설명하고 표로 비교한다."""
     render_html(f"""
-        {section_label("stairs", "STRONGER", "점점 강해지는 검사 방법")}
+        {section_label("stairs", "점점 강해지는 검사 방법")}
         <div class="bt-box dt-explain">
             <p><b>XOR 체크섬</b>은 바이트마다 패리티를 붙이는 대신, <b>모든 바이트를 XOR로 차례로 겹쳐 확인값 1바이트</b>를 만들어요.
             예를 들어 <code>B(01000010) ^ U(01010101) ^ G(01000111) = 01010000</code>이에요. 확인값의 각 자리는
@@ -257,20 +257,20 @@ def show_real_uses():
         f'<div class="bt-term"><div class="bt-term-name">{escape(place)}</div><div class="bt-term-desc">{escape(how)}</div></div>'
         for place, how in REAL_USES
     )
-    render_html(f'{section_label("public", "REAL WORLD", "실제로 쓰이는 곳")}<div class="bt-terms">{cards}</div>')
+    render_html(f'{section_label("public", "실제로 쓰이는 곳")}<div class="bt-terms">{cards}</div>')
 
 
 def show_sources():
     """근거 문서 목록 (누르면 새 탭에서 열린다)"""
     items = "".join(f'<li><a href="{escape(url)}" target="_blank">{escape(title)} ↗</a></li>' for title, url in SOURCES)
-    render_html(f'{section_label("library_books", "SOURCES", "출처")}<div class="bt-box"><ol class="an-sources">{items}</ol></div>')
+    render_html(f'{section_label("library_books", "출처")}<div class="bt-box"><ol class="an-sources">{items}</ol></div>')
 
 
 # 이 페이지에만 쓰는 디자인: 바이트 한 줄, 3칸 비교 표, 단계 카드
 DETECTION_STYLE = """
 <style>
 .dt-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap:wrap; }
-.dt-row .bits span { width: 29px; height: 37px; line-height:33px; font-size:1.1rem; }
+.dt-row .bits span { width: 40px; height: 50px; line-height: 45px; font-size: 1.4rem; }   /* 비트가 주인공: 크게 */
 .dt-parity-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0; }
 .dt-parity-grid > div { border:2px solid var(--ink);background:var(--paper);padding:12px; }
 .dt-parity-grid strong { color:var(--ink);background:var(--lime-soft); }
