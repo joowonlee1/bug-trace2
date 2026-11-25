@@ -17,10 +17,10 @@ from common import crt_frame, open_case, page_banner, render_html
 
 # 결과 상자 종류: 종류 이름 → (상자 색 이름, 앞에 붙는 제목)
 RESULT_STYLES = {
-    "diff": ("bt-err", "🔎 RESULT · 오류 현상이 재현됐어요"),   # 컴퓨터가 예상과 다르게 동작함 (실험 성공!)
-    "same": ("bt-ok", "✅ RESULT · 결과가 같아요"),              # 이번 값에서는 차이가 없음
-    "note": ("bt-key", "💡 NOTE · 핵심"),                        # 정리 문장
-    "input": ("bt-obs", "⌨️ INPUT · 입력을 확인해 주세요"),       # 입력이 비었거나 잘못됨
+    "diff": ("bt-err", "🔎 오류 현상이 재현됐어요"),   # 컴퓨터가 예상과 다르게 동작함 (실험 성공!)
+    "same": ("bt-ok", "✅ 결과가 같아요"),              # 이번 값에서는 차이가 없음
+    "note": ("bt-key", "💡 핵심 정리"),                        # 정리 문장
+    "input": ("bt-obs", "⌨️ 입력을 확인해 주세요"),       # 입력이 비었거나 잘못됨
 }
 
 # 실험 목록: "실험 이름표": (화면에 보일 이름, 관련 사례 번호)
@@ -31,21 +31,21 @@ LABS = {
     "float_underflow": ("④ 실수 언더플로", 2),
 }
 
-INT_BITS = 32                                             # 정수 실험에 쓰는 칸 수 (32비트)
-INT_MAX = (1 << (INT_BITS - 1)) - 1                       # 32비트 부호 있는 정수의 최댓값  2,147,483,647
-INT_MIN = -(1 << (INT_BITS - 1))                          # 32비트 부호 있는 정수의 최솟값 -2,147,483,648
 UNIX_START = datetime(1970, 1, 1, tzinfo=timezone.utc)    # 유닉스 시간의 출발점 (1970-01-01 00:00:00 UTC)
 
 # 실수 64비트를 색으로 나눠 보여 주는 디자인 (정수 비트 칸 .bits는 common.py에 있다)
 #   .s = 부호 칸(빨강) / .e = 지수 칸(파랑) / .m = 가수 칸(라임) / .gap = 부분 사이 틈
 BIT_STYLE = """
 <style>
-.fbits { display: grid; grid-template-columns: repeat(32, 25px); gap: 3px; width: max-content; margin: 8px 0 12px; }
-.fbits span:not(.gap) { box-sizing: border-box; width: 25px; height: 36px; line-height: 31px; text-align: center; font-size: 1.05rem; border: 2px solid var(--ink);
+/* 정수 비트 32칸이 한 줄에 다 들어가게 */
+.bits.b32 { flex-wrap: nowrap; gap: 6px; }
+.bits.b32 span { width: 27px; height: 38px; line-height: 33px; font-size: 1.1rem; }
+/* 64칸을 16칸씩 4줄로 크게 놓는다. 맨 앞 칸은 '몇 번째 비트부터인지' 줄 번호 */
+.fbits { display: grid; grid-template-columns: 74px repeat(16, 36px); gap: 4px; width: max-content; margin: 8px 0 12px; }
+.fbits .bit { box-sizing: border-box; width: 36px; height: 46px; line-height: 41px; text-align: center; font-size: 1.3rem; border: 2px solid var(--ink);
               font-family: 'Galmuri11', monospace; font-weight: 700; }
-.fbits .bit-break { grid-column: 1 / -1; height: 0; }
+.fbits .row-no { align-self: center; font-size: 0.85rem; font-weight: 700; color: var(--dim); white-space: nowrap; }
 .fbits-scroll { max-width: 100%; overflow-x: auto; padding: 2px 3px 8px; }
-@media (max-width: 850px) { .fbits { grid-template-columns: repeat(16, 25px); } .fbits .bit-break { display: none; } }
 .fbits .s { background: #F6D5CF; color: var(--red); border-color: var(--red); }
 .fbits .e { background: #D6E8F7; color: var(--sky); border-color: var(--sky); }
 .fbits .m { background: var(--lime-soft); color: var(--ink); }
@@ -58,16 +58,22 @@ BIT_STYLE = """
 """
 
 
-# 작은 위첨자 대신 일반 크기의 지수 표기를 사용한다.
-def readable_number(value):
-    """숫자 또는 숫자 문자열을 읽기 쉬운 10의 거듭제곱 표기로 바꾼다."""
+# 위첨자 숫자표: 일반 숫자를 위첨자 글자로 바꾼다. 예) "-308" → "⁻³⁰⁸"
+SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+
+
+def readable_number(value, in_code=False):
+    """컴퓨터식 표기(2.2e-308)를 교과서식 표기(2.2 × 10⁻³⁰⁸)로 바꾼다.
+    in_code=True: 코드 상자의 글꼴에는 위첨자 ³ 글자가 없어서, '10의 -308제곱'처럼 글로 풀어 쓴다."""
     raw = str(value)
     match = re.fullmatch(r"([+-]?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)", raw)
     if not match:
         return raw
     coefficient, exponent = match.groups()
-    exponent = int(exponent)
-    return f"{coefficient} × 10^({exponent})"
+    exponent = int(exponent)                         # int()로 앞의 + 기호와 0을 정리한다 (예: "+05" → 5)
+    if in_code:
+        return f"{coefficient} × 10의 {exponent}제곱"
+    return f"{coefficient} × 10{str(exponent).translate(SUPERSCRIPT)}"
 
 
 LAB_FLOAT_STYLE = """
@@ -188,20 +194,45 @@ def show_bits(value, bits, label):
                 kind += " sign"                      # 맨 앞 칸 = 부호 비트
             cells += f'<span class="{kind}">{text[position]}</span>'
         groups += f'<div class="byte">{cells}</div>'
-    render_html(f'<div class="bits-label">{escape(label)}</div><div class="bits">{groups}</div>')
+    # b32: 32칸일 때 한 줄에 다 들어가는 크기로 그린다
+    render_html(f'<div class="bits-label">{escape(label)}</div><div class="bits b{bits}">{groups}</div>')
 
 
-def show_negative_steps(positive):
+def show_negative_steps(positive, bits):
     """양수 → 음수를 2의 보수로 만드는 과정: ① 원래 수 → ② 모든 칸 뒤집기(~) → ③ 1 더하기"""
     flipped = ~positive                              # ~ (NOT) : 0은 1로, 1은 0으로 모든 칸을 뒤집는다
-    st.code(f"① 원래 수 {positive:>13,} : {bit_string(positive, INT_BITS)}\n"
-            f"② 모든 칸 뒤집기(~)     : {bit_string(flipped, INT_BITS)}\n"
-            f"③ 1 더하기              : {bit_string(flipped + 1, INT_BITS)}  = {-positive:,}")
+    st.code(f"① 원래 수 {positive:>13,} : {bit_string(positive, bits)}\n"
+            f"② 모든 칸 뒤집기(~)     : {bit_string(flipped, bits)}\n"
+            f"③ 1 더하기              : {bit_string(flipped + 1, bits)}  = {-positive:,}")
 
 
 # -------------------------------------------------------------
 # 2. 실험 ① 정수 오버플로·언더플로 (BUG-001)
 # -------------------------------------------------------------
+
+# 정수 실험의 칸 수: 실제 사례(유튜브 조회수, 2038년 문제, 보잉 787)가 모두 부호 있는 32비트에서 생겼다
+INT_BITS = 32
+
+# 자동차 주행 거리계처럼 '계산 전 → 계산 후'를 큰 숫자로 보여 주는 디자인
+ODOMETER_STYLE = """
+<style>
+.odo { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 10px 0 6px; }
+.odo-box { background: #1E2B21; border: 4px solid #0F1A12; padding: 8px 16px; min-width: 190px; text-align: center; box-shadow: inset 0 0 10px rgba(198,234,78,.3); }
+.odo-box small { display: block; color: #CFE3A0; font-size: 0.85rem; margin-bottom: 2px; }
+.odo-box b { font-family: 'Press Start 2P', monospace; color: #C6EA4E; font-size: 1.35rem; letter-spacing: 1px; }
+.odo-box.bad { border-color: var(--red); animation: cal-shake .5s ease 1; }
+.odo-box.bad b { color: #FF8A7A; }
+.odo-op { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 1.2rem; }
+.odo-math { color: var(--dim); font-size: 0.95rem; }
+@keyframes cal-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+</style>
+"""
+
+
+def int_limits(bits):
+    """bits칸짜리 부호 있는 정수의 (최솟값, 최댓값). 예) 8비트 → (-128, 127)"""
+    return -(1 << (bits - 1)), (1 << (bits - 1)) - 1
+
 
 def set_int_example(start, operator):
     """'최댓값 + 1', '최솟값 − 1' 버튼을 누르면 입력칸 값을 예시로 바꾼다. (on_click에서 실행)"""
@@ -210,57 +241,75 @@ def set_int_example(start, operator):
     st.session_state["int_amount"] = 1
 
 
-def show_int_examples():
-    """입력칸을 예시 값으로 한 번에 채우는 버튼 2개"""
-    over_column, under_column, _ = st.columns([1.25, 1.25, 5.5], gap="small")
-    over_column.button("최댓값 + 1", key="int_ex_over",
-                       on_click=set_int_example, args=(INT_MAX, "+"), use_container_width=True)
-    under_column.button("최솟값 − 1", key="int_ex_under",
-                        on_click=set_int_example, args=(INT_MIN, "−"), use_container_width=True)
+def show_int_examples(bits):
+    """예시 버튼 2개를 한 줄에 작게 놓는다. (보조 버튼이라 크게 만들지 않는다)"""
+    smallest, largest = int_limits(bits)
+    # key가 compact_로 시작하는 상자 안의 버튼은 작은 크기로 그려진다 (common.py의 '작은 크기' 디자인)
+    with st.container(key="compact_int_examples", horizontal=True, vertical_alignment="center"):
+        render_html('<div class="compact-label">바로 해 보기</div>')
+        st.button("최댓값 + 1", key="int_ex_over", on_click=set_int_example, args=(largest, "+"))
+        st.button("최솟값 − 1", key="int_ex_under", on_click=set_int_example, args=(smallest, "−"))
 
 
-def show_int_result(start, operator, amount):
-    """수학 계산 결과와 32비트 정수에 담은 결과를 비트와 함께 비교한다."""
+def show_odometer(start, operator, amount, real_result, stored_result, bits):
+    """계산 전 → 계산 후를 주행 거리계처럼 큰 숫자로 보여 준다. 넘쳐서 값이 바뀌면 빨갛게 흔들린다."""
+    bad = " bad" if real_result != stored_result else ""
+    render_html(f"""
+        <div class="odo">
+            <div class="odo-box"><small>계산 전</small><b>{start:,}</b></div>
+            <div class="odo-op">{operator} {amount:,} →</div>
+            <div class="odo-box{bad}"><small>{bits}비트에 저장된 값</small><b>{stored_result:,}</b></div>
+            <div class="odo-math">수학으로 계산하면 {real_result:,}</div>
+        </div>
+    """)
+
+
+def show_int_result(start, operator, amount, bits):
+    """수학 계산 결과와 bits칸 정수에 담은 결과를 큰 숫자와 비트로 비교한다."""
+    smallest, largest = int_limits(bits)
     real_result = start + amount if operator == "+" else start - amount   # 수학 계산 (Python 정수는 칸 제한이 없다)
-    stored_result = to_signed(real_result, INT_BITS)                      # 32비트 칸에 담았을 때의 값
-    show_bits(to_signed(start, INT_BITS), INT_BITS, f"계산 전: {to_signed(start, INT_BITS):,}")
-    show_bits(stored_result, INT_BITS, f"계산 후 32비트에 저장된 값: {stored_result:,}")
-    st.code(f"수학 계산     : {start:,} {operator} {amount:,} = {real_result:,}\n"
-            f"32비트 저장값 : {stored_result:,}")
+    stored_result = to_signed(real_result, bits)                          # bits칸에 담았을 때의 값
+    # 비트가 주인공: 비트 칸을 먼저 크게 보여 주고, 숫자 계기판은 그 아래에 요약으로 놓는다
+    show_bits(start, bits, f"계산 전: {start:,}")
+    show_bits(stored_result, bits, f"계산 후 {bits}비트에 저장된 값: {stored_result:,}")
+    show_odometer(start, operator, amount, real_result, stored_result, bits)
 
-    if real_result > INT_MAX:          # 위쪽 끝을 넘음 → 오버플로
-        result_box("diff", f"최댓값 {INT_MAX:,}을 넘어서 음수 {stored_result:,}(으)로 넘어갔어요! (정수 오버플로) "
-                           "32비트만 저장하는 방식에서는 결과의 부호 비트가 1로 바뀌어 음수로 해석돼요.")
-    elif real_result < INT_MIN:        # 아래쪽 끝을 넘음 → 정수 언더플로
-        result_box("diff", f"최솟값 {INT_MIN:,}보다 작아져서 양수 {stored_result:,}(으)로 넘어갔어요! (정수 언더플로) "
-                           "32비트만 저장하는 방식에서는 결과의 부호 비트가 0으로 바뀌어 양수로 해석돼요.")
+    if real_result > largest:          # 위쪽 끝을 넘음 → 오버플로
+        result_box("diff", f"최댓값 {largest:,}을 넘어서 음수 {stored_result:,}(으)로 넘어갔어요! (정수 오버플로) "
+                           "받아올림이 맨 앞 칸(부호 비트)까지 올라가 1이 되어 음수로 읽혀요.")
+    elif real_result < smallest:       # 아래쪽 끝을 넘음 → 정수 언더플로
+        result_box("diff", f"최솟값 {smallest:,}보다 작아져서 양수 {stored_result:,}(으)로 넘어갔어요! (정수 언더플로) "
+                           "빌림 때문에 맨 앞 칸(부호 비트)이 0이 되어 양수로 읽혀요.")
     else:
-        result_box("same", "32비트 범위 안이라 수학 계산과 같아요. 위의 예시 버튼을 눌러 보세요.")
+        result_box("same", f"{bits}비트 범위 안이라 수학 계산과 같아요. 위의 예시 버튼을 눌러 보세요.")
 
     # 결과가 음수라면, 그 음수가 2의 보수로 어떻게 만들어졌는지 단계별로 보여 준다.
-    if stored_result == INT_MIN:
-        result_box("note", f"{INT_MIN:,}은 32비트에서 가장 작은 수예요. 짝이 되는 +2,147,483,648은 32비트에 담을 수 없어서 "
-                           "'1 다음에 0이 31개'인 특별한 모양이에요. (음수 쪽이 하나 더 많은 이유)")
+    if stored_result == smallest:
+        result_box("note", f"{smallest:,}은 {bits}비트에서 가장 작은 수예요. 짝이 되는 +{-smallest:,}은 {bits}비트에 담을 수 없어서 "
+                           "'1 다음에 0만 이어지는' 특별한 모양이에요. (음수 쪽이 하나 더 많은 이유)")
     elif stored_result < 0:
         st.markdown("**이 음수는 이렇게 만들어져요 (2의 보수: 뒤집고 1 더하기)**")
-        show_negative_steps(-stored_result)
+        show_negative_steps(-stored_result, bits)
 
 
 def run_int_overflow_lab():
     """32비트 정수에 더하거나 빼 보며 오버플로·언더플로와 2의 보수를 확인한다."""
     lab_title("가장 큰 수에 1을 더하면? 가장 작은 수에서 1을 빼면?",
-              "가정: 부호 있는 32비트 정수에서, 칸 밖으로 넘친 비트를 그냥 버리는 경우")
-    # 처음 들어왔을 때의 입력값 (예시 버튼이 session_state로 값을 바꾸므로, 입력칸에는 value=를 따로 주지 않는다)
-    st.session_state.setdefault("int_start", INT_MAX)
+              "가정: 부호 있는 32비트 정수에서, 칸 밖으로 넘친 비트를 그냥 버리는 경우 (조회수·2038년 문제와 같은 조건)")
+    render_html(ODOMETER_STYLE)
+    # 처음 들어왔을 때의 값 (버튼이 session_state로 값을 바꾸므로, 입력칸에는 value=를 따로 주지 않는다)
+    bits = INT_BITS
+    smallest, largest = int_limits(bits)
+    st.session_state.setdefault("int_start", largest)
     st.session_state.setdefault("int_operator", "+")
     st.session_state.setdefault("int_amount", 1)
-    show_int_examples()
-    start_column, operator_column, amount_column = st.columns([2.2, 1, 1.2], vertical_alignment="bottom")
-    # min/max: 32비트 범위 안의 수만 입력할 수 있게 막는다
-    start = start_column.number_input("32비트 정수", min_value=INT_MIN, max_value=INT_MAX, step=1, key="int_start")
+    show_int_examples(bits)                                     # 예시 버튼 (한 줄, 작게)
+    start_column, operator_column, amount_column, _ = st.columns([1.6, 0.7, 1.1, 1.6], vertical_alignment="bottom")
+    # min/max: 고른 칸 수의 범위 안의 수만 입력할 수 있게 막는다
+    start = start_column.number_input(f"{bits}비트 정수", min_value=smallest, max_value=largest, step=1, key="int_start")
     operator = operator_column.selectbox("계산", ["+", "−"], key="int_operator")
-    amount = amount_column.number_input("얼마나", min_value=0, max_value=INT_MAX, step=1, key="int_amount")
-    show_int_result(int(start), operator, int(amount))
+    amount = amount_column.number_input("얼마나", min_value=0, max_value=largest, step=1, key="int_amount")
+    show_int_result(int(start), operator, int(amount), bits)
 
 
 # -------------------------------------------------------------
@@ -290,40 +339,79 @@ def seconds_to_text(seconds):
         return "(아주 먼 미래)"
 
 
+# 탁상 달력 + 디지털 시계 디자인. 날짜가 틀어진 시계(.bad)는 빨갛게 바뀌고 한 번 흔들린다.
+CALENDAR_STYLE = """
+<style>
+.cal-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 12px 0; }
+.cal-card { border: 3px solid var(--ink); background: #FAFBEF; padding: 10px 12px 12px; text-align: center; min-width: 0; }
+.cal-name { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 0.95rem; margin-bottom: 8px; }
+.cal-page { position: relative; margin: 0 auto; max-width: 210px; background: #FFFFFF; border: 3px solid var(--ink); box-shadow: 5px 5px 0 rgba(31,77,37,.25); }
+.cal-page::before, .cal-page::after { content: ""; position: absolute; top: -10px; width: 12px; height: 18px; border: 3px solid var(--ink); border-radius: 6px; background: #E8DDC4; }
+.cal-page::before { left: 28%; } .cal-page::after { right: 28%; }
+.cal-year { background: var(--ink); color: #F4F8E8; font-family: 'Galmuri11', sans-serif; font-weight: 700; font-size: 1.15rem; padding: 6px 0 4px; }
+.cal-month { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 1.05rem; margin-top: 6px; }
+.cal-day { font-family: 'Press Start 2P', monospace; color: var(--ink); font-size: 2.6rem; line-height: 1.3; }
+.cal-week { color: var(--dim); font-size: 0.9rem; margin-bottom: 8px; }
+.cal-clock { display: inline-block; margin-top: 12px; padding: 6px 14px; background: #1E2B21; color: #C6EA4E; border: 3px solid #0F1A12;
+             font-family: 'Press Start 2P', monospace; font-size: 1.05rem; letter-spacing: 2px; box-shadow: inset 0 0 8px rgba(198,234,78,.35); }
+.cal-stamp { margin-top: 10px; font-family: 'Galmuri11', sans-serif; font-weight: 700; font-size: 1rem; color: #2F6B2A; }
+.cal-card.bad { border-color: var(--red); background: #FBE7DF; animation: cal-shake .5s ease 1; }
+.cal-card.bad .cal-year { background: var(--red); }
+.cal-card.bad .cal-day, .cal-card.bad .cal-month { color: var(--red); }
+.cal-card.bad .cal-clock { color: #FF8A7A; }
+.cal-card.bad .cal-stamp { color: var(--red); font-size: 1.08rem; }
+@keyframes cal-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.cal-now { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 1.05rem; }
+@media (max-width: 700px) { .cal-grid { grid-template-columns: 1fr; } }
+</style>
+"""
+WEEKDAYS = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]   # datetime.weekday(): 월요일 = 0
+
+
+def calendar_card_html(clock_name, real_seconds, stored_seconds):
+    """시계 하나를 탁상 달력 + 디지털 시계 모양의 HTML로 만든다. 날짜가 틀어지면 빨간 카드가 된다."""
+    try:
+        moment = UNIX_START + timedelta(seconds=stored_seconds)       # 이 시계가 읽은 날짜·시각
+    except OverflowError:                                              # 날짜로 나타낼 수 없을 만큼 먼 미래
+        return f'<div class="cal-card"><div class="cal-name">{escape(clock_name)}</div><div class="cal-stamp">아주 먼 미래</div></div>'
+    real_year = (UNIX_START + timedelta(seconds=real_seconds)).year
+    if stored_seconds == real_seconds:
+        css, stamp = "cal-card", "✅ 정상"
+    else:
+        css, stamp = "cal-card bad", f"❌ {real_year - moment.year}년 전으로 돌아감!"
+    return f"""
+        <div class="{css}">
+            <div class="cal-name">{escape(clock_name)}</div>
+            <div class="cal-page">
+                <div class="cal-year">{moment.year}년</div>
+                <div class="cal-month">{moment.month}월</div>
+                <div class="cal-day">{moment.day}</div>
+                <div class="cal-week">{WEEKDAYS[moment.weekday()]}</div>
+            </div>
+            <div class="cal-clock">{moment:%H:%M:%S}</div>
+            <div class="cal-stamp">{stamp}</div>
+        </div>
+    """
+
+
 def run_y2038_lab():
-    """같은 초를 세 종류의 시계(32비트 부호 있음·없음, 64비트)에 담아 날짜가 어떻게 읽히는지 비교한다."""
+    """같은 초를 세 종류의 시계(32비트 부호 있음·없음, 64비트)에 담아, 달력과 시계로 날짜가 어떻게 읽히는지 비교한다."""
     lab_title("1초가 지나면 시계는 몇 년을 가리킬까?",
-              "유닉스 시간(1970-01-01 0시부터 센 초)을 서로 다른 칸에 담고, 경계 순간 앞뒤로 1초씩 움직여 보세요.")
-    render_html("""<style>
-    .lab-clock-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
-    .lab-clock-card{border:3px solid #1F4D25;background:#FAFBEF;padding:12px;display:flex;flex-direction:column;gap:9px;min-width:0}
-    .lab-clock-card b{font-size:.87rem}.lab-clock-card strong{font-size:clamp(1rem,1.6vw,1.4rem);overflow-wrap:anywhere}
-    .lab-clock-card span{font-size:.9rem}.lab-clock-card em{font-style:normal;color:#456B32;font-weight:700}
-    @media(max-width:700px){.lab-clock-grid{grid-template-columns:1fr}}
-    </style>""")
+              "유닉스 시간(1970-01-01 0시부터 센 초)을 서로 다른 칸에 담았어요. 슬라이더를 1칸씩 움직여 달력이 어떻게 바뀌는지 보세요.")
+    render_html(CALENDAR_STYLE)
     moment_name = st.radio("살펴볼 순간", list(MOMENTS.keys()), key="y2038_moment", horizontal=True)
     offset = st.slider("그 순간에서 몇 초 지났나요?", -3, 3, 0, key="y2038_offset")
     seconds = MOMENTS[moment_name] + offset              # 실제로 흐른 초
 
-    st.markdown(f"**실제로 흐른 시간: {seconds:,}초 → {seconds_to_text(seconds)}**")
-    lines = []
+    render_html(f'<div class="cal-now">⏱️ 실제로 흐른 시간: {seconds:,}초 → {escape(seconds_to_text(seconds))}</div>')
+    cards = ""
     broken = []                                          # 날짜가 틀어진 시계 이름 모음
     for clock_name, store in CLOCK_TYPES.items():
         stored = store(seconds)                          # 이 시계에 실제로 담기는 값
-        mark = "✅" if stored == seconds else "❌"
         if stored != seconds:
             broken.append(clock_name)
-        lines.append(f"{mark} {clock_name:<18} : {stored:>15,}초 → {seconds_to_text(stored)}")
-    cards = ""
-    for clock_name, store in CLOCK_TYPES.items():
-        stored = store(seconds)
-        stamp = seconds_to_text(stored)
-        date, time = (stamp.split(" ", 1) + [""])[:2]
-        status = "정상" if stored == seconds else "날짜 오류"
-        cards += (f'<div class="lab-clock-card"><b>{escape(clock_name)}</b>'
-                  f'<strong>{escape(date)}</strong><span>{escape(time)}</span>'
-                  f'<em>{status}</em></div>')
-    render_html('<div class="lab-clock-grid">' + cards + '</div>')
+        cards += calendar_card_html(clock_name, seconds, stored)
+    render_html('<div class="cal-grid">' + cards + '</div>')
     show_bits(to_signed(seconds, 32), 32, "32비트 칸에 담긴 비트 (빨간 테두리 = 부호 비트)")
 
     if broken:
@@ -351,10 +439,10 @@ def show_float_bits(number, label):
     text = float_bits(number)
     cells = ""
     for position, bit in enumerate(text):
+        if position % 16 == 0:                       # 16칸마다 새 줄: 줄 앞에 '1~16번'처럼 번호를 붙인다
+            cells += f'<span class="row-no">{position + 1}~{position + 16}번</span>'
         kind = "s" if position == 0 else ("e" if position <= 11 else "m")
-        if position == 32:
-            cells += '<span class="bit-break" aria-hidden="true"></span>'
-        cells += f'<span class="{kind}">{bit}</span>'
+        cells += f'<span class="bit {kind}">{bit}</span>'
     render_html(f"""
         <div class="bits-label">{escape(label)}</div>
         <div class="flegend"><span><b class="s">부호 1칸</b> 0=양수</span><span><b class="e">지수 11칸</b> 2의 몇 제곱인지</span>
@@ -395,7 +483,7 @@ def show_float_result(first_text, second_text):
         return
 
     # !r (repr): 숫자를 줄이지 않고 컴퓨터가 가진 값 그대로 보여 준다.
-    st.code(f"컴퓨터 계산 (float)   : {first_text} + {second_text} = {readable_number(repr(computer_result))}\n"
+    st.code(f"컴퓨터 계산 (float)   : {first_text} + {second_text} = {readable_number(repr(computer_result), in_code=True)}\n"
             f"정확한 계산 (Decimal) : {first_text} + {second_text} = {exact_result}")
     if Decimal(computer_result) == exact_result:
         result_box("same", "이번 계산 결과는 정확한 10진수 값과 일치해요. (예: 0.5 + 0.25)")
@@ -522,6 +610,39 @@ def halving_steps(start):
     return values
 
 
+# 언더플로 단계 표시 디자인: 3단계 칸(지금 단계만 켜짐) + 남은 유효 비트 53칸(하나씩 꺼짐)
+UNDERFLOW_STYLE = """
+<style>
+.uf-stages { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 8px; margin: 8px 0 10px; }
+.uf-stage { border: 3px solid #9DB98F; background: #F4F7E9; color: #7C8F78; text-align: center; padding: 8px 6px; font-family: 'Galmuri11', sans-serif; font-weight: 700; }
+.uf-stage small { display: block; font-family: 'Noto Sans KR', sans-serif; font-weight: 500; font-size: 0.82rem; margin-top: 2px; }
+.uf-stage.on { border-color: var(--ink); background: var(--lime); color: var(--ink); }
+.uf-stage.on.zero { border-color: var(--red); background: #FBE7DF; color: var(--red); }
+.uf-arrow { font-weight: 800; color: var(--ink); }
+.uf-precision { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 2px; }
+.uf-precision i { width: 14px; height: 18px; border: 2px solid var(--ink); background: var(--lime); }
+.uf-precision i.off { background: transparent; border-color: #B9C5AA; }
+.uf-precision-label { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 0.95rem; margin-top: 4px; }
+</style>
+"""
+
+
+def show_underflow_stage(value, exponent, precision):
+    """지금 값이 '정상 수 → 비정규 수 → 0' 중 어디인지 칸으로 켜 주고, 남은 유효 비트를 53칸 막대로 보여 준다."""
+    stage = "zero" if value == 0 else ("subnormal" if exponent == 0 else "normal")
+    on = lambda name: " on" if stage == name else ""                 # 지금 단계에만 'on' 이름표를 붙인다
+    blocks = "".join('<i></i>' if index < precision else '<i class="off"></i>' for index in range(53))
+    render_html(UNDERFLOW_STYLE + f"""
+        <div class="uf-stages">
+            <div class="uf-stage{on('normal')}">① 정상 수<small>53비트 정밀도 그대로</small></div><div class="uf-arrow">▶</div>
+            <div class="uf-stage{on('subnormal')}">② 비정규 수<small>지수 칸이 바닥, 정밀도가 줄어듦</small></div><div class="uf-arrow">▶</div>
+            <div class="uf-stage zero{on('zero')}">③ 0이 되어 사라짐<small>더 담을 칸이 없음</small></div>
+        </div>
+        <div class="uf-precision-label">남은 유효 비트 {precision}칸 / 53칸</div>
+        <div class="uf-precision">{blocks}</div>
+    """)
+
+
 def run_float_underflow_lab():
     """아주 작은 수를 계속 반으로 나누며 정상 수 → 비정규 수 → 0이 되는 과정을 비트로 확인한다."""
     lab_title("아주 작은 수를 계속 반으로 나누면?",
@@ -534,19 +655,17 @@ def run_float_underflow_lab():
 
     # 정상 수는 가수 52칸 + 숨은 1칸 = 53비트의 유효숫자, 비정규 수는 가수 칸에서 실제로 쓰는 비트만 남는다
     precision = 53 if exponent else mantissa.bit_length()
-    st.markdown("**숫자가 점점 작아지는 과정** — 정상 수 → 정밀도가 줄어드는 비정규 수 → 0")
-    stage = "0으로 반올림" if value == 0 else ("정밀도 감소" if exponent == 0 else "정상적으로 표현")
-    st.progress(min(1.0, count / max(1, len(values)-1)), text=f"{count}번 나눔 · {stage}")
-    st.code(f"{count}번 나눔 → 값 = {readable_number(repr(value))}\n"
+    show_underflow_stage(value, exponent, precision)
+    st.code(f"{count}번 나눔 → 값 = {readable_number(repr(value), in_code=True)}\n"
             f"상태          : {state}\n"
-            f"지수 칸 값    : {exponent}  (0이 되면 더 작은 지수를 나타낼 수 없음)\n"
-            f"남은 유효 비트 : {precision} / 53")
+            f"지수 칸 값    : {exponent}  (0이 되면 더 작은 지수를 나타낼 수 없음)")
+    st.caption("읽는 법: 10⁻³⁰⁸은 '10의 -308제곱'이에요. 소수점 아래로 0이 307개 이어진 뒤에야 1이 나오는, 아주 작은 수예요.")
     show_float_bits(value, f"{count}번 나눈 값의 64비트")
 
-    st.code(f"{first_subnormal - 1:>3}번 : 마지막 정상 수   {readable_number(repr(values[first_subnormal - 1]))}\n"
-            f"{first_subnormal:>3}번 : 첫 비정규 수     {readable_number(repr(values[first_subnormal]))}\n"
-            f"{len(values) - 2:>3}번 : 가장 작은 수     {readable_number(repr(values[-2]))}\n"
-            f"{len(values) - 1:>3}번 : 0이 되어 사라짐  {readable_number(repr(values[-1]))}")
+    st.code(f"{first_subnormal - 1:>3}번 : 마지막 정상 수   {readable_number(repr(values[first_subnormal - 1]), in_code=True)}\n"
+            f"{first_subnormal:>3}번 : 첫 비정규 수     {readable_number(repr(values[first_subnormal]), in_code=True)}\n"
+            f"{len(values) - 2:>3}번 : 가장 작은 수     {readable_number(repr(values[-2]), in_code=True)}\n"
+            f"{len(values) - 1:>3}번 : 0이 되어 사라짐  {readable_number(repr(values[-1]), in_code=True)}")
     if value == 0.0:
         result_box("diff", "더 작은 수를 담을 칸이 없어서 값이 0이 되어 사라졌어요! (부동소수점 언더플로)")
     elif exponent == 0:
