@@ -6,6 +6,7 @@
 #   → ⑦ 관련 영상(있을 때만) → ⑧ 실험실 버튼 → ⑨ 출처 → ⑩ 탭: 자주 생기는 곳 / 해결 방법 / 관련 사례
 # =============================================================
 
+import re                         # 글자 규칙(정규식): **굵게** 표시를 찾을 때 사용
 from html import escape           # 글자 속 <, > 기호를 안전하게 바꾸는 함수
 
 import streamlit as st
@@ -14,184 +15,165 @@ from common import case_label, crt_frame, find_case, icon, load_cases, page_bann
 
 
 # -------------------------------------------------------------
-# 초보자용 기초 안내: 오류 사례를 반복하지 않고 저장 원리만 설명한다.
+# 용어 카드의 '자세히 보기' 내용: 오류 사례를 반복하지 않고 저장 원리만 설명한다.
+# (예전에는 아래쪽 '원리 이해하기' 접기 상자에 따로 있었는데, 용어 카드와 내용이 겹쳐서 카드 안 팝업으로 합쳤다)
 # -------------------------------------------------------------
 
-def show_beginner_guide():
-    """기초 학습 안내서: 읽기 편한 교재형 레이아웃, 기존 7개 탭 유지."""
-    with st.container(key="beginner_guide"):
-        with st.expander("▣ 원리 이해하기 · 필요한 내용만 펼쳐 보기", expanded=False):
-            st.caption("비트와 2진수부터 오류 검출까지 · 필요한 주제만 선택해서 읽어 보세요.")
-            tabs = st.tabs([
-                "비트와 2진수", "비트 수와 범위", "음수와 2의 보수",
-                "비트 연산", "2진 소수", "IEEE 754", "오류 검출 기초",
-            ])
+# **굵게** 표시를 찾는 규칙. (.+?) = 별표 사이의 글자를 가능한 한 짧게 찾는다
+BOLD_PATTERN = re.compile(r"\*\*(.+?)\*\*")
 
-            with tabs[0]:
-                st.markdown("### 비트는 0 또는 1을 담는 한 칸")
-                st.markdown(
-                    "비트와 바이트의 뜻은 위 용어 카드에서 확인하고, 여기서는 계산 원리를 살펴봐요.\n\n"
-                    "**8비트 = 1바이트(byte)**이고, 8비트로 만들 수 있는 조합은 **256가지**예요.\n\n"
-                    "10진수는 오른쪽부터 1, 10, 100…의 자리 값을 사용하지만, "
-                    "2진수는 오른쪽부터 **1, 2, 4, 8, 16…**의 자리 값을 사용해요."
-                )
-                st.markdown("#### 13을 8비트 2진수로 표현하기")
-                st.markdown("""
-<div class="btg-bits">
-  <div><small>128</small><span>0</span></div>
-  <div><small>64</small><span>0</span></div>
-  <div><small>32</small><span>0</span></div>
-  <div><small>16</small><span>0</span></div>
-  <div class="active"><small>8</small><span>1</span></div>
-  <div class="active"><small>4</small><span>1</span></div>
-  <div><small>2</small><span>0</span></div>
-  <div class="active"><small>1</small><span>1</span></div>
-</div>
-<div class="btg-result">8 + 4 + 1 = <strong>13</strong> <span>→ 00001101₂</span></div>
-""", unsafe_allow_html=True)
-                st.markdown("반대로 `00001010`은 8과 2 자리에 1이 있으므로 **10**이에요.")
 
-            with tabs[1]:
-                st.markdown("### 비트가 늘어나면 표현할 수 있는 조합도 늘어나요")
-                st.markdown("비트 하나에는 0과 1, 두 가지 상태가 있어요. 따라서 **n비트의 전체 조합 수는 2ⁿ가지**예요.")
-                st.markdown("""
-<div class="btg-table-wrap"><table class="btg-table">
-<thead><tr><th>비트 수</th><th>가능한 조합 수</th></tr></thead>
-<tbody>
-<tr><td>8비트</td><td>256가지 (2⁸)</td></tr>
-<tr><td>32비트</td><td>4,294,967,296가지 (2³²)</td></tr>
-<tr><td>64비트</td><td>18,446,744,073,709,551,616가지 (2⁶⁴)</td></tr>
-</tbody></table></div>
-""", unsafe_allow_html=True)
-                st.markdown(
-                    "하지만 **조합 수가 곧 양수의 최댓값은 아니에요.** "
-                    "같은 8비트라도 부호 없는 정수는 **0~255**, 2의 보수로 표현한 부호 있는 정수는 "
-                    "**−128~127**을 나타내요. 모두 256가지 값이에요.\n\n"
-                    "또한 32비트 정수와 32비트 실수는 저장 규칙이 달라요. "
-                    "비트 수만 보고 정확도나 범위를 단정하면 안 돼요."
-                )
+def write_text(text):
+    """문장을 보여 준다. **굵게**는 HTML <b>로 바꿔서, 한글 바로 앞에서도 별표가 그대로 보이지 않게 한다."""
+    st.markdown(BOLD_PATTERN.sub(r"<b>\1</b>", text), unsafe_allow_html=True)
 
-            with tabs[2]:
-                st.markdown("### 음수는 어떻게 비트로 저장할까요?")
-                st.markdown(
-                    "비트에는 `−` 기호를 직접 적지 않아요. 그래서 부호 있는 정수는 보통 "
-                    "**2의 보수** 규칙으로 해석해요. "
-                    "8비트에서 맨 앞 비트가 0이면 0 이상, 1이면 음수로 해석돼요."
-                )
-                st.markdown("#### 5를 −5로 바꾸기")
-                st.markdown("""
-<div class="btg-twos">
-  <div><b>① +5의 8비트</b><code>00000101</code></div>
-  <div><b>② 0과 1 뒤집기</b><code>11111010</code></div>
-  <div><b>③ 1 더하기</b><code>11111011</code></div>
-</div><p><strong>결과: 11111011 = −5</strong></p>
-""", unsafe_allow_html=True)
-                st.markdown(
-                    "8비트 2의 보수에서 맨 앞 자리의 값은 **−128**, 나머지는 64, 32, 16, 8, 4, 2, 1이에요.\n\n"
-                    "`11111011` = −128 + 64 + 32 + 16 + 8 + 2 + 1 = **−5**\n\n"
-                    "따라서 8비트 부호 있는 정수의 범위는 **−128~127**이에요. 0이 포함되므로 음수 쪽이 한 개 더 많아요."
-                )
 
-            with tabs[3]:
-                st.markdown("### 비트 연산은 0과 1을 직접 다루는 계산이에요")
-                st.markdown(
-                    "**AND (`&`)** — 두 비트가 모두 1일 때만 1이에요. `1100 & 1010 = 1000`\n\n"
-                    "**XOR (`^`)** — 두 비트가 다를 때만 1이에요. `1100 ^ 1010 = 0110`\n\n"
-                    "**NOT (`~`)** — 비트를 뒤집어요. 4비트 기준 `1100 → 0011`\n\n"
-                    "**왼쪽 시프트 (`<<`)** — 비트를 왼쪽으로 옮겨요. `0011 << 1 = 0110`"
-                )
-                st.markdown(
-                    "Python의 `~` 연산은 정수의 비트 폭을 고정하지 않으므로, "
-                    "4비트 결과를 얻으려면 별도 마스크가 필요해요. "
-                    "고정 비트 폭에서 시프트하면 범위를 벗어난 상위 비트가 잘릴 수 있어요.\n\n"
-                    "특히 XOR은 뒤쪽 **오류 검출** 내용을 이해하는 기초예요."
-                )
+def topic_bits():
+    """자세히 보기 ① 비트와 2진수: 2진수 자리 값과 13을 2진수로 바꾸는 예"""
+    write_text(
+        "**8비트 = 1바이트**이고, 8비트로 만들 수 있는 조합은 **256가지**예요.\n\n"
+        "10진수는 오른쪽부터 1, 10, 100…의 자리 값을 쓰지만, "
+        "2진수는 오른쪽부터 **1, 2, 4, 8, 16…**의 자리 값을 써요."
+    )
+    st.markdown("#### 13을 8비트 2진수로 표현하기")
+    render_html("""
+        <div class="btg-bits">
+          <div><small>128</small><span>0</span></div><div><small>64</small><span>0</span></div>
+          <div><small>32</small><span>0</span></div><div><small>16</small><span>0</span></div>
+          <div class="active"><small>8</small><span>1</span></div><div class="active"><small>4</small><span>1</span></div>
+          <div><small>2</small><span>0</span></div><div class="active"><small>1</small><span>1</span></div>
+        </div>
+        <div class="btg-result">8 + 4 + 1 = <strong>13</strong> <span>→ 00001101₂</span></div>
+    """)
+    write_text("반대로 `00001010`은 8과 2 자리에 1이 있으므로 **10**이에요.")
 
-            with tabs[4]:
-                st.markdown("### 소수점 아래에도 2진수 자리가 있어요")
-                st.markdown(
-                    "10진수는 소수점 아래가 1/10, 1/100… 순서이고, "
-                    "2진수는 **1/2, 1/4, 1/8…** 순서예요."
-                )
-                st.markdown("""
-<div class="btg-table-wrap"><table class="btg-table btg-table-small">
-<thead><tr><th>2진수</th><th>10진수</th></tr></thead>
-<tbody>
-<tr><td>0.1₂</td><td>0.5</td></tr>
-<tr><td>0.01₂</td><td>0.25</td></tr>
-<tr><td>0.11₂</td><td>0.75</td></tr>
-</tbody></table></div>
-""", unsafe_allow_html=True)
-                st.markdown(
-                    "반면 **10진수 0.1**은 2진수로 `0.0001100110011…`처럼 끝없이 반복돼요. "
-                    "유한한 비트로 저장할 때는 가까운 값으로 반올림해야 하므로 작은 오차가 생길 수 있어요."
-                )
-                st.markdown("#### 그런데 왜 평소에는 오류가 잘 안 보일까요?")
-                st.markdown(
-                    "컴퓨터가 내부적으로 근삿값을 저장해도, 출력할 때 반올림되어 "
-                    "정상적인 숫자처럼 보이는 경우가 많기 때문이에요."
-                )
-                st.code(
-                    "print(0.5 + 0.25)       # 0.75\n"
-                    "print(0.1 + 0.3)        # 0.4\n"
-                    "print(0.1 + 0.2)        # 0.30000000000000004\n"
-                    "print(0.1 + 0.2 == 0.3) # False",
-                    language="python",
-                )
-                st.markdown(
-                    "`0.5`와 `0.25`는 2진수로 정확하게 저장할 수 있어요. "
-                    "`0.1`과 `0.3`은 정확히 저장되지 않지만 합계가 `0.4`로 표시돼요. "
-                    "반면 `0.1 + 0.2`는 작은 차이가 화면에도 드러나요.\n\n"
-                    "**중요:** 모든 소수 계산에서 오류가 나타나는 것은 아니며, "
-                    "작은 오차가 있더라도 눈에 띄지 않을 수 있어요. "
-                    "특히 `==`로 실수를 정확히 비교할 때 예상과 다른 결과가 나올 수 있어요."
-                )
 
-            with tabs[5]:
-                st.markdown("### 부동소수점(浮動小數點) — 소수점 위치를 움직이는 표현")
-                st.markdown("**부(浮)**는 뜨다, **동(動)**은 움직이다, **소수점(小數點)**은 숫자의 점을 뜻해요. "
-                            "소수점 위치를 옮기고 지수를 조정해 큰 수와 작은 수를 표현하는 방식이에요. "
-                            "예를 들어 123.45 = 1.2345 × 10²이고, 컴퓨터는 이 원리를 2진수에 적용해요.")
-                st.markdown("#### IEEE 754는 실수를 저장하는 대표적인 규칙이에요")
-                st.markdown(
-                    "실수는 정수와 달리 **부호·지수·가수 저장 영역(fraction 필드)**으로 나눠 저장해요. "
-                    "과학 시간의 `1.23 × 10⁴` 같은 표기법을 2진수로 적용한 것과 비슷해요."
-                )
-                st.markdown("""
-<div class="btg-table-wrap"><table class="btg-table">
-<thead><tr><th>64비트 배정밀도</th><th>비트 수</th><th>역할</th></tr></thead>
-<tbody>
-<tr><td>부호</td><td>1</td><td>양수·음수 표시</td></tr>
-<tr><td>지수</td><td>11</td><td>수의 크기 조절</td></tr>
-<tr><td>가수 저장 영역</td><td>52</td><td>유효숫자 정보 저장</td></tr>
-</tbody></table></div>
-""", unsafe_allow_html=True)
-                st.markdown(
-                    "일반적인 **정규 수**는 저장하지 않은 선행 1비트를 포함해 "
-                    "**53비트 유효 정밀도**를 사용해요. 0에 아주 가까운 **비정규 수(subnormal)**는 "
-                    "유효 정밀도가 줄어들 수 있어요.\n\n"
-                    "실수의 부호 비트는 정수의 2의 보수와 다르게 작동해요. "
-                    "이제 현상 실험실에서 부호·지수·가수 그림을 보면 각 부분의 역할을 이해할 수 있어요."
-                )
+def topic_range():
+    """자세히 보기 ② 비트 수와 범위: 조합 수와 실제로 담을 수 있는 범위의 차이"""
+    write_text("비트 하나에는 0과 1, 두 가지 상태가 있어요. 그래서 **n비트의 전체 조합 수는 2ⁿ가지**예요.")
+    render_html("""
+        <div class="btg-table-wrap"><table class="btg-table">
+        <thead><tr><th>비트 수</th><th>가능한 조합 수</th></tr></thead>
+        <tbody>
+        <tr><td>8비트</td><td>256가지 (2⁸)</td></tr>
+        <tr><td>32비트</td><td>4,294,967,296가지 (2³²)</td></tr>
+        <tr><td>64비트</td><td>18,446,744,073,709,551,616가지 (2⁶⁴)</td></tr>
+        </tbody></table></div>
+    """)
+    write_text(
+        "하지만 **조합 수가 곧 양수의 최댓값은 아니에요.** "
+        "같은 8비트라도 부호 없는 정수는 **0~255**, 2의 보수로 표현한 부호 있는 정수는 "
+        "**−128~127**을 나타내요. 둘 다 256가지 값이에요.\n\n"
+        "이 범위의 끝을 넘으면 반대쪽 끝으로 넘어가요. 위로 넘치면 **오버플로**, 아래로 넘치면 **언더플로**예요."
+    )
 
-            with tabs[6]:
-                st.markdown("### 숫자 표현 오차와 데이터 전달 오류는 달라요")
-                st.markdown(
-                    "앞에서 배운 것은 제한된 비트로 **숫자를 표현하는 방법**이에요. "
-                    "반면 데이터를 전송하거나 저장할 때 비트가 바뀌는 문제도 있어요. "
-                    "이때는 검사 값을 덧붙여 오류를 찾아낼 수 있어요."
-                )
-                st.markdown(
-                    "#### 짝수 패리티\n"
-                    "데이터와 패리티 비트를 합쳐 **1의 개수가 짝수**가 되도록 만드는 방식이에요.\n\n"
-                    "데이터 `1011`에는 1이 3개이므로 패리티 비트 `1`을 붙여 `10111`로 보내요. "
-                    "도착했을 때 1의 개수가 홀수라면 오류가 발생했음을 알 수 있어요."
-                )
-                st.markdown(
-                    "하지만 **두 비트가 동시에 바뀌면** 짝수·홀수가 그대로라서 놓칠 수 있어요. "
-                    "체크섬과 CRC는 다른 규칙으로 검사 값을 만들어요. "
-                    "자세한 내용은 기존 **오류 검출** 페이지에서 실험할 수 있어요."
-                )
+
+def topic_twos():
+    """자세히 보기 ③ 음수와 2의 보수: 5를 −5로 바꾸는 과정과 비트 연산"""
+    write_text(
+        "비트에는 `−` 기호를 직접 적을 수 없어요. 그래서 부호 있는 정수는 **2의 보수** 규칙으로 읽어요. "
+        "맨 앞 비트(부호 비트)가 0이면 0 이상, 1이면 음수예요."
+    )
+    st.markdown("#### 5를 −5로 바꾸기")
+    render_html("""
+        <div class="btg-twos">
+          <div><b>① +5의 8비트</b><code>00000101</code></div>
+          <div><b>② 0과 1 뒤집기</b><code>11111010</code></div>
+          <div><b>③ 1 더하기</b><code>11111011</code></div>
+        </div>
+    """)
+    write_text(
+        "8비트 2의 보수에서 맨 앞 자리의 값은 **−128**, 나머지는 64, 32, 16, 8, 4, 2, 1이에요.\n\n"
+        "`11111011` = −128 + 64 + 32 + 16 + 8 + 2 + 1 = **−5**\n\n"
+        "그래서 8비트 부호 있는 정수의 범위는 **−128~127**이에요. 0이 양수 쪽 자리를 하나 차지해서 음수 쪽이 하나 더 많아요."
+    )
+    st.markdown("#### 비트 연산: 0과 1을 직접 다루는 계산")
+    write_text(
+        "**AND (`&`)** — 두 비트가 모두 1일 때만 1 · `1100 & 1010 = 1000`\n\n"
+        "**XOR (`^`)** — 두 비트가 다를 때만 1 · `1100 ^ 1010 = 0110`\n\n"
+        "**NOT (`~`)** — 0과 1을 모두 뒤집기 · `1100 → 0011` (2의 보수 ②단계)\n\n"
+        "**왼쪽 밀기 (`<<`)** — 비트를 왼쪽으로 한 칸씩 옮기기 = 2를 곱하기 · `0011 << 1 = 0110`"
+    )
+
+
+def topic_fraction():
+    """자세히 보기 ④ 2진 소수: 0.1이 2진수로 끝나지 않는 이유와 오차가 눈에 안 띄는 경우"""
+    write_text("10진수는 소수점 아래가 1/10, 1/100… 순서이고, 2진수는 **1/2, 1/4, 1/8…** 순서예요.")
+    render_html("""
+        <div class="btg-table-wrap"><table class="btg-table btg-table-small">
+        <thead><tr><th>2진수</th><th>10진수</th></tr></thead>
+        <tbody><tr><td>0.1₂</td><td>0.5</td></tr><tr><td>0.01₂</td><td>0.25</td></tr><tr><td>0.11₂</td><td>0.75</td></tr></tbody>
+        </table></div>
+    """)
+    write_text(
+        "반면 **10진수 0.1**은 2진수로 `0.0001100110011…`처럼 끝없이 반복돼요. "
+        "정해진 칸에 담으려면 가까운 값으로 반올림해야 해서 아주 작은 오차가 생겨요."
+    )
+    st.markdown("#### 그런데 왜 평소에는 오차가 잘 안 보일까요?")
+    st.code(
+        "print(0.5 + 0.25)       # 0.75\n"
+        "print(0.1 + 0.3)        # 0.4\n"
+        "print(0.1 + 0.2)        # 0.30000000000000004\n"
+        "print(0.1 + 0.2 == 0.3) # False",
+        language="python",
+    )
+    write_text(
+        "`0.5`와 `0.25`는 2진수로 정확하게 저장돼요. `0.1`과 `0.3`은 정확하지 않지만, 출력할 때 반올림되어 `0.4`로 보여요. "
+        "반면 `0.1 + 0.2`는 작은 차이가 화면에도 드러나요. 그래서 실수를 `==`로 비교하면 예상과 다른 결과가 나올 수 있어요."
+    )
+
+
+def topic_ieee():
+    """자세히 보기 ⑤ 부동소수점과 IEEE 754: 부호·지수·가수와 정상 수·비정규 수"""
+    st.markdown("#### 부동소수점(浮動小數點) — 소수점 위치를 움직이는 표현")
+    write_text(
+        "**부(浮)**는 뜨다, **동(動)**은 움직이다, **소수점(小數點)**은 숫자의 점을 뜻해요. "
+        "소수점 위치를 옮기고 지수를 조정해 큰 수와 작은 수를 함께 나타내는 방식이에요. "
+        "예를 들어 123.45 = 1.2345 × 10²이고, 컴퓨터는 이 원리를 2진수에 적용해요."
+    )
+    st.markdown("#### IEEE 754는 실수를 저장하는 대표적인 규칙이에요")
+    write_text("64비트 실수는 칸을 **부호 · 지수 · 가수** 세 부분으로 나눠 저장해요.")
+    render_html("""
+        <div class="btg-table-wrap"><table class="btg-table">
+        <thead><tr><th>부분</th><th>칸 수</th><th>하는 일</th></tr></thead>
+        <tbody>
+        <tr><td>부호</td><td>1</td><td>양수·음수 표시</td></tr>
+        <tr><td>지수</td><td>11</td><td>수의 크기 조절 (2의 몇 제곱인지)</td></tr>
+        <tr><td>가수</td><td>52</td><td>유효숫자 저장</td></tr>
+        </tbody></table></div>
+    """)
+    write_text(
+        "보통의 **정상 수**는 저장하지 않는 맨 앞 1비트까지 합쳐 **53비트의 정밀도**를 써요. "
+        "0에 아주 가까워 지수 칸이 바닥에 닿으면 **비정규 수**가 되어 정밀도가 줄어들고, 그보다 작으면 0이 돼요. "
+        "반대로 너무 커서 지수 칸이 넘치면 무한대(inf)가 돼요."
+    )
+
+
+# 자세히 보기 주제: 이름표 → (팝업 제목, 내용을 그리는 함수)
+TOPICS = {
+    "bits": ("비트와 2진수", topic_bits),
+    "range": ("비트 수와 범위", topic_range),
+    "twos": ("음수와 2의 보수, 비트 연산", topic_twos),
+    "fraction": ("2진 소수", topic_fraction),
+    "ieee": ("부동소수점과 IEEE 754", topic_ieee),
+}
+
+# 용어마다 열어 줄 자세히 보기 주제 (없는 용어는 카드 설명만으로 충분해서 버튼을 달지 않는다)
+TERM_TOPICS = {
+    "비트": "bits", "부호 비트": "twos", "2의 보수": "twos",
+    "정수 오버플로": "range", "정수 언더플로": "range",
+    "2진 소수": "fraction", "반올림 오차": "fraction",
+    "부동소수점": "ieee", "IEEE 754": "ieee", "부동소수점 오버플로": "ieee",
+    "부동소수점 언더플로": "ieee", "비정규 수": "ieee",
+}
+
+
+@st.dialog("자세히 보기", width="large")
+def show_topic_dialog(topic_key):
+    """용어 카드의 '자세히 보기'를 누르면 뜨는 팝업 창: 주제 제목과 내용을 보여 준다."""
+    title, draw_topic = TOPICS[topic_key]
+    st.markdown(f"### {title}")
+    draw_topic()
 
 
 # -------------------------------------------------------------
@@ -242,9 +224,9 @@ def show_case_selector(cases):
 # 2. 화면 위쪽: 제목, 증상 비교, 처리 과정
 # -------------------------------------------------------------
 
-def section_label(icon_name, english, korean):
-    """각 구역 위에 붙는 작은 제목. 예) ⚙ PROCESS · 처리 과정"""
-    return f'<div class="sec-label">{icon(icon_name)} {english} · {korean}</div>'
+def section_label(icon_name, title):
+    """각 구역 위에 붙는 작은 제목. 예) ⚙ 컴퓨터 안에서 일어난 일"""
+    return f'<div class="sec-label">{icon(icon_name)} {title}</div>'
 
 
 def show_title(case):
@@ -272,15 +254,15 @@ def show_symptom_row(case):
     if case["observation"]:
         observed = f"""
             <div class="bt-box bt-obs an-observed">
-                <div class="bt-box-label">{icon("visibility")} OBSERVED · 직접 관찰</div>{escape(case['observation'])}
+                <div class="bt-box-label">{icon("visibility")} 직접 관찰</div>{escape(case['observation'])}
             </div>
         """
     render_html(f"""
-        {section_label("search", "SYMPTOM", "어떤 현상인가")}
+        {section_label("search", "어떤 현상인가")}
         <div class="an-grid3">
             <div class="bt-box"><div class="bt-box-label">증상</div>{escape(case['symptom'])}</div>
-            <div class="bt-box bt-ok"><div class="bt-box-label">EXPECTED · 정상이라면</div>{escape(case['expected'])}</div>
-            <div class="bt-box bt-err"><div class="bt-box-label">ACTUAL · 실제로는</div>{escape(case['actual'])}</div>
+            <div class="bt-box bt-ok"><div class="bt-box-label">정상이라면</div>{escape(case['expected'])}</div>
+            <div class="bt-box bt-err"><div class="bt-box-label">실제로는</div>{escape(case['actual'])}</div>
         </div>
         {observed}
     """)
@@ -291,7 +273,7 @@ def show_flow(case):
     flow = case["flow"]       # {"input": "...", "process": "...", "output": "..."}
     # 출력 칸(bt-flow-out)은 벽돌색으로 그려서 '이상한 결과'임을 강조한다.
     render_html(f"""
-        {section_label("route", "PROCESS", "컴퓨터 안에서 일어난 일")}
+        {section_label("route", "컴퓨터 안에서 일어난 일")}
         <div class="bt-flow">
             <div class="bt-flow-box">{icon("keyboard")}<div class="bt-flow-name">입력</div><div class="bt-flow-text">{escape(flow['input'])}</div></div>
             <div class="bt-flow-arrow">▶</div>
@@ -316,20 +298,34 @@ def basis_badge(case, step):
     return '<span class="bt-basis bt-basis-guess">🔎 추정</span>'
 
 
+def group_steps(steps):
+    """바로 이어지는 단계가 같은 근거 문서를 가리키면 한 묶음으로 합친다.
+    예) #01·#02가 둘 다 '2의 보수' 문서 → 카드 하나에 두 문장. 결과: [[단계, 단계], [단계], ...]"""
+    groups = []
+    for step in steps:
+        same_source = groups and groups[-1][-1]["source"] == step["source"] and groups[-1][-1]["basis"] == step["basis"]
+        if same_source and step["source"] is not None:
+            groups[-1].append(step)              # 앞 묶음과 같은 문서 → 그 묶음에 붙인다
+        else:
+            groups.append([step])                # 다른 문서 → 새 묶음을 시작한다
+    return groups
+
+
 def show_steps(case):
-    """④ 원인을 #01 → #02 … 순서의 추적 카드로 가로로 나란히 보여 준다. (타임라인)"""
+    """④ 원인을 #01 → #02 … 순서의 추적 카드로 가로로 나란히 보여 준다. 같은 문서를 근거로 한 단계는 한 카드로 합친다."""
     cards = ""
-    # enumerate(목록, start=1): 번호(1, 2, 3...)와 단계 내용을 함께 꺼낸다.
-    # 단계 하나는 {"basis": "확인" 또는 "추정", "text": "설명"} 형태의 딕셔너리다.
-    for step_number, step in enumerate(case["steps"], start=1):
+    # enumerate(목록, start=1): 번호(1, 2, 3...)와 단계 묶음을 함께 꺼낸다.
+    # 단계 하나는 {"basis": "확인" 또는 "추정", "source": 문서 번호, "text": "설명"} 형태의 딕셔너리다.
+    for step_number, group in enumerate(group_steps(case["steps"]), start=1):
+        texts = "".join(f'<p>{escape(step["text"])}</p>' for step in group)
         cards += f"""
             <div class="an-step">
-                <div class="an-step-head"><span class="bt-step-no">#{step_number:02d}</span>{basis_badge(case, step)}</div>
-                <div class="an-step-text">{escape(step['text'])}</div>
+                <div class="an-step-head"><span class="bt-step-no">#{step_number:02d}</span>{basis_badge(case, group[0])}</div>
+                <div class="an-step-text">{texts}</div>
             </div>
         """
     render_html(f"""
-        {section_label("troubleshoot", "TRACE", "원인 추적 기록")}
+        {section_label("troubleshoot", "원인 추적 기록")}
         <div class="an-steps">{cards}</div>
     """)
 
@@ -339,18 +335,25 @@ def show_key_point(case):
     render_html(f"""
         <div class="bt-keypoint">
             {icon("lightbulb")}
-            <div><div class="bt-keypoint-label">KEY POINT · 이것만 기억하세요</div>
+            <div><div class="bt-keypoint-label">이것만 기억하세요</div>
             <div class="bt-keypoint-text">{escape(case['key_point'])}</div></div>
         </div>
     """)
 
 
 def show_terms(case):
-    """③ 설명을 읽기 전에 먼저 알아 둘 전문용어를 카드로 보여 준다."""
-    cards = ""
-    for term in case["terms"]:               # term = {"term": "용어", "desc": "쉬운 설명"}
-        cards += f'<div class="bt-term"><div class="bt-term-name">{escape(term["term"])}</div><div class="bt-term-desc">{escape(term["desc"])}</div></div>'
-    render_html(f'{section_label("menu_book", "WORDS", "먼저 알아 둘 용어")}<div class="bt-terms">{cards}</div>')
+    """③ 먼저 알아 둘 용어를 한 줄 카드로 보여 준다. 설명이 더 필요한 용어는 '자세히 보기'로 팝업을 연다."""
+    render_html(section_label("menu_book", "먼저 알아 둘 용어 · 더 궁금하면 '자세히 보기'"))
+    terms = case["terms"]
+    with st.container(key="term_row"):
+        columns = st.columns(len(terms), gap="small")          # 용어 수만큼 칸을 만들어 한 줄에 놓는다
+        for number, (column, term) in enumerate(zip(columns, terms)):
+            with column, st.container(key=f"term_card_{number}"):
+                render_html(f'<div class="bt-term-name">{escape(term["term"])}</div>'
+                            f'<div class="bt-term-desc">{escape(term["desc"])}</div>')
+                topic = TERM_TOPICS.get(term["term"])            # 이 용어와 연결된 자세히 보기 주제 (없으면 None)
+                if topic and st.button("자세히 보기", key=f"term_more_{number}", width="stretch"):
+                    show_topic_dialog(topic)
 
 
 def show_sources(case):
@@ -358,13 +361,13 @@ def show_sources(case):
     items = ""
     for number, source in enumerate(case["sources"], start=1):
         items += f'<li><a href="{escape(source["url"])}" target="_blank">{escape(source["title"])} ↗</a></li>'
-    render_html(f'{section_label("library_books", "SOURCES", "출처")}<div class="bt-box"><ol class="an-sources">{items}</ol></div>')
+    render_html(f'{section_label("library_books", "출처")}<div class="bt-box"><ol class="an-sources">{items}</ol></div>')
 
 
 def show_video(case):
     """⑦ 관련 영상: 데이터에 video가 있는 사례에서만 YouTube 영상을 바로 재생할 수 있게 넣는다."""
     video = case["video"]               # {"title": "...", "url": "..."} 또는 None
-    render_html(section_label("smart_display", "VIDEO", "영상으로 한 번 더"))
+    render_html(section_label("smart_display", "영상으로 한 번 더"))
     video_column, guide_column = st.columns([3, 2], vertical_alignment="center")
     with video_column:
         st.video(video["url"])          # st.video: YouTube 주소를 넣으면 화면 안에서 재생된다
@@ -444,110 +447,24 @@ def apply_anatomy_style():
         .an-step-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
         .an-step-head .bt-step-no { flex: none; width: 50px; height: 32px; line-height: 28px; }
         .an-step-text { font-size: 0.98rem; line-height: 1.7; color: var(--text); }
+        .an-step-text p { margin: 0 0 6px; }   /* 한 카드에 합쳐진 문장 사이 간격 */
         .an-sources { margin: 0; padding-left: 22px; line-height: 1.9; }
         .an-sources a { color: #2F6B2A; font-weight: 700; }
         @media (max-width: 800px) { .an-grid3 { grid-template-columns: 1fr; } }
 
-        /* 안내서 전용: 과도한 블록 간격과 여백을 줄여 학습 내용을 촘촘히 배치 */
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"] {
-            gap: 0.55rem !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] .stMarkdown {
-            max-width: 1040px !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] .stMarkdown p {
-            margin: 0 0 0.45rem !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] [data-testid="stCode"] {
-            max-width: 800px;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] h3 {
-            margin: 10px 0 5px !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] h4 {
-            margin: 12px 0 5px !important;
-        }
-        /* 기초 학습 안내서: 읽기 중심, 형광펜·불필요한 상자 제거 */
-        .st-key-beginner_guide [data-testid="stExpander"] {
-            background: #F7F8E9 !important;
-            border: 2px solid #234C2A !important;
-            border-radius: 5px !important;
-            overflow: hidden;
-            margin: 6px 0 16px;
-            box-shadow: none !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpander"] summary {
-            background: #214A2A !important;
-            padding: 13px 20px !important;
-            min-height: 54px !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpander"] summary:hover {
-            background: #2B5C34 !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpander"] summary p {
-            color: #F4F8E8 !important;
-            font-size: 1.16rem !important;
-            font-weight: 750 !important;
-            line-height: 1.4 !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpander"] summary svg {
-            color: #E8F1CE !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] {
-            background: #F7F8E9 !important;
-            padding: 14px 20px 22px !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] .stMarkdown,
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] .stCaptionContainer {
-            max-width: 850px;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] p,
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] li {
-            background: transparent !important;
-            box-shadow: none !important;
-            color: #24382A !important;
-            font-size: 1.04rem !important;
-            line-height: 1.75 !important;
-            word-break: keep-all;
-            overflow-wrap: anywhere;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] strong {
-            color: #193D23 !important;
-            background: transparent !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] h3 {
-            font-size: 1.5rem !important;
-            color: #1F4D25 !important;
-            margin: 16px 0 12px !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] h4 {
-            font-size: 1.12rem !important;
-            color: #1F4D25 !important;
-            margin: 18px 0 8px !important;
-        }
-        .st-key-beginner_guide [data-testid="stTabs"] button {
-            background: transparent !important;
-            border: 0 !important;
-            border-bottom: 2px solid #B9C5AA !important;
-            border-radius: 0 !important;
-            padding: 9px 13px !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-        }
-        .st-key-beginner_guide [data-testid="stTabs"] button[aria-selected="true"] {
-            background: #E3EACD !important;
-            border-bottom: 3px solid #1F4D25 !important;
-        }
-        .st-key-beginner_guide [data-testid="stExpanderDetails"] code {
-            background: #E9EDDD !important;
-            color: #1F4D25 !important;
-            box-shadow: none !important;
-            font-weight: 600;
-        }
+        /* 용어 카드: 한 줄에 나란히, 높이는 모두 같게, '자세히 보기' 버튼은 카드 맨 아래 */
+        .st-key-term_row [data-testid="stHorizontalBlock"] { align-items: stretch; }
+        .st-key-term_row [data-testid="stColumn"] > [data-testid="stVerticalBlock"] { height: 100%; }
+        .st-key-term_row [data-testid="stLayoutWrapper"]:has(> [class*="st-key-term_card_"]) { flex: 1 1 auto; }
+        [class*="st-key-term_card_"] { height: 100%; gap: 4px; background: var(--paper); border: 2px solid var(--ink);
+                                       border-top: 6px solid var(--ink); padding: 10px 10px 2px; }
+        [class*="st-key-term_card_"] > [data-testid="stElementContainer"]:has(.stButton) { margin-top: auto; }
+        [class*="st-key-term_card_"] div.stButton { padding-top: 2px; }
+        [class*="st-key-term_card_"] div.stButton button { min-height: 32px; padding: 2px 6px; margin: 4px 4px 8px; }
+        [class*="st-key-term_card_"] div.stButton button p { font-size: 0.88rem !important; }
+        /* 자세히 보기 팝업 안의 글 */
+        div[role="dialog"] p, div[role="dialog"] li { font-size: 1.02rem; line-height: 1.75; word-break: keep-all; }
+        div[role="dialog"] h4 { margin: 14px 0 6px !important; }
         .btg-table-wrap { max-width: 680px; margin: 14px 0 18px; overflow-x: auto; }
         .btg-table {
             border-collapse: collapse;
@@ -592,9 +509,6 @@ def apply_anatomy_style():
         }
         .btg-result span { margin-left: 14px; }
         @media (max-width: 800px) {
-            .st-key-beginner_guide [data-testid="stExpanderDetails"] {
-                padding: 12px !important;
-            }
             .btg-table th, .btg-table td { padding: 8px 6px; }
             .btg-bits { gap: 2px; }
             .btg-bits small { font-size: .68rem; }
@@ -619,8 +533,7 @@ with crt_frame("pages/anatomy.py", "ANATOMY"):
 
     show_title(current_case)                  # ① 제목
     show_key_point(current_case)              # ② 핵심 원리 (가장 크게)
-    show_terms(current_case)                  # ③ 먼저 알아 둘 용어
-    show_beginner_guide()                      # 용어 다음에 필요한 원리만 선택적으로 학습
+    show_terms(current_case)                  # ③ 먼저 알아 둘 용어 (+ 자세히 보기 팝업)
     show_symptom_row(current_case)            # ④ 증상 · 정상이라면 · 실제로는 (+ 직접 관찰)
     show_flow(current_case)                   # ⑤ 처리 과정
     show_steps(current_case)                  # ⑥ 원인 추적 기록
