@@ -162,6 +162,10 @@ def show_transmission(data, received, positions):
         check = "✅ 일치" if ok else "❌ 불일치"
         sent_rows += byte_row_html(f"#{index + 1} {chr(sent_byte)}", sent_byte, sent_parity)
         received_rows += byte_row_html(f"#{index + 1}", got_byte, sent_parity, flipped, check)
+    # 표를 읽기 전에 규칙과 색의 뜻을 먼저 알려 준다
+    render_html('<div class="dt-legend">이 실험은 <b>짝수 패리티</b>예요 (1의 총개수를 짝수로 맞춤) · '
+                '<span class="par-chip">0</span> 파랑 칸 = <b>패리티 비트</b> · '
+                '<span class="flip-chip">1</span> 빨강 칸 = 오는 길에 <b>뒤집힌 비트</b></div>')
     send_column, receive_column = st.columns(2)
     with send_column:
         render_html(f'<div class="bits-label">📤 보낸 데이터 (8칸 + 패리티 칸)</div>{sent_rows}')
@@ -199,29 +203,35 @@ def run_detection_lab():
     render_html("""<div class="bt-box dt-explain"><b>실험 방법</b>
       <p>① 보낼 글자를 입력해요. ② 뒤집을 비트 ①에 1 이상의 번호를 넣어요. (0은 변경하지 않음)</p>
       <p>③ 보낸 데이터와 받은 데이터의 빨간색 비트를 비교해요. ④ 비트 ②도 바꿔 두 검사 방법의 차이를 관찰해요.</p>
+      <p><b>왜 한 글자가 8비트일까?</b> 이 실험은 ASCII(영어·숫자를 바이트로 바꾸는 규칙)를 써서 영어·숫자 한 글자를 1바이트(8비트)로 바꿔요. 한글은 한 글자가 3바이트(24비트)라서 이 실험에서는 영어·숫자만 써요.
+      <br>예) 'B' = 01000010 → 'BUG' 3글자 = 24비트</p>
     </div>""")
     with st.container(border=True):
         text_column, first_column, second_column = st.columns([2, 1, 1], vertical_alignment="bottom")
         message = text_column.text_input("보낼 글자 (영어·숫자, 8글자까지)", "BUG", max_chars=8, key="dt_text")
         data = message.encode("ascii", errors="ignore")      # 글자 → 바이트 (영어·숫자만 1글자 = 1바이트)
         if not data:
-            st.info("영어나 숫자를 입력해 주세요. 예) BUG")
+            st.info("영어나 숫자를 입력해 주세요.  \n예) BUG")
             return
         total_bits = len(data) * 8
+        st.session_state.setdefault("dt_flip1", 3)   # 처음 값은 session_state에 한 번만 넣는다 (입력칸에도 기본값을 주면 경고가 뜬다)
+        st.session_state.setdefault("dt_flip2", 0)
         # 글자를 줄이면 전에 고른 번호가 범위를 넘을 수 있어서, 입력칸을 그리기 전에 최댓값으로 맞춘다
         for key in ("dt_flip1", "dt_flip2"):
             if st.session_state.get(key, 0) > total_bits:
                 st.session_state[key] = total_bits
-        first = first_column.number_input(f"뒤집을 비트 ① (0~{total_bits})", 0, total_bits, min(3, total_bits), key="dt_flip1")
-        second = second_column.number_input("뒤집을 비트 ② (0 = 안 뒤집기)", 0, total_bits, 0, key="dt_flip2")
-        st.caption("💡 해 볼 것: ② 에 ①과 같은 바이트 안의 번호(예: 3과 5)를 넣어 보세요. 그다음 ①=3, ②=11처럼 다른 바이트의 같은 자리도 넣어 보세요.")
+        first = first_column.number_input(f"뒤집을 비트 ① (0부터 {total_bits}까지)", 0, total_bits, key="dt_flip1")
+        second = second_column.number_input("뒤집을 비트 ② (0 = 안 뒤집기)", 0, total_bits, key="dt_flip2")
+        # "  \n" = 마크다운에서 줄을 바꾸는 표시 (예시를 다음 줄에 쓰기)
+        st.caption("💡 해 볼 것: ②에 ①과 같은 바이트 안의 번호를 넣고, 그다음 다른 바이트의 같은 자리도 넣어 보세요.  \n"
+                   "예) ①=3, ②=5 (같은 바이트) → ①=3, ②=11 (다른 바이트의 같은 자리)")
 
         positions = [first, second]
         received = flip_bits(data, positions)               # 전달 중 비트가 뒤집혔다고 가정
         caught = show_transmission(data, received, positions)
         sent_sum, received_sum = xor_checksum(data), xor_checksum(received)
-        st.code(f"XOR 체크섬 (보낼 때) : {sent_sum:08b}  ({sent_sum})\n"
-                f"XOR 체크섬 (받은 뒤) : {received_sum:08b}  ({received_sum})")
+        st.code(f"XOR 체크섬 (보낼 때) : {sent_sum:08b}\n"
+                f"XOR 체크섬 (받은 뒤) : {received_sum:08b}  ← 보낼 때와 {'같음' if sent_sum == received_sum else '다름 → 오류 발견'}")
         show_verdict(positions, caught, sent_sum != received_sum)
 
 
@@ -229,24 +239,35 @@ def run_detection_lab():
 # 4. 한계와 더 강한 방법, 실제 쓰임
 # -------------------------------------------------------------
 
+def show_xor_explain():
+    """실험 전에 XOR 체크섬을 먼저 설명한다. (실험 결과에 XOR 체크섬이 나오기 전에 무엇인지 알 수 있게)"""
+    render_html(f"""
+        {section_label("help", "실험 전: XOR 체크섬")}
+        <div class="bt-box dt-explain">
+            <p><b>XOR 체크섬</b>은 바이트마다 패리티를 붙이는 대신, <b>모든 바이트를 XOR로 차례로 겹쳐 확인값 1바이트</b>를 만들어요.
+            XOR은 두 비트가 <b>다르면 1, 같으면 0</b>이 되는 계산이에요.
+            <br>예) <code>B(01000010) ^ U(01010101) ^ G(01000111) = 01010000</code><br>확인값의 각 자리는
+            '그 자리에 있는 1의 개수가 홀수인가?'를 뜻하니까, <b>자리마다 패리티를 계산한 것</b>과 같아요.
+            그래서 서로 다른 바이트의 <b>같은 자리</b> 비트 2개가 함께 바뀌면 서로 지워져서 놓치고, 바이트의 <b>순서가 바뀌어도</b> 값이 같아 알아채지 못해요.</p>
+            <p>아래 실험에서는 보낼 때와 받은 뒤의 XOR 체크섬을 비교해서, 다르면 '오류 발견'으로 판단해요.</p>
+        </div>
+    """)
+
+
 def show_stronger_methods():
-    """⑤⑥ 패리티의 한계 → XOR 체크섬 → CRC 순서로 점점 강해지는 방법을 자세히 설명하고 표로 비교한다."""
+    """⑤⑥ 실험에서 본 한계 다음에, 더 강한 CRC를 설명하고 세 방법을 표로 비교한다."""
     render_html(f"""
         {section_label("stairs", "점점 강해지는 검사 방법")}
         <div class="bt-box dt-explain">
-            <p><b>XOR 체크섬</b>은 바이트마다 패리티를 붙이는 대신, <b>모든 바이트를 XOR로 차례로 겹쳐 확인값 1바이트</b>를 만들어요.
-            예를 들어 <code>B(01000010) ^ U(01010101) ^ G(01000111) = 01010000</code>이에요. 확인값의 각 자리는
-            '그 자리에 있는 1의 개수가 홀수인가?'를 뜻하니까, <b>자리마다 패리티를 계산한 것</b>과 같아요.
-            그래서 서로 다른 바이트의 <b>같은 자리</b> 비트 2개가 함께 바뀌면 서로 지워져서 놓치고, 바이트의 <b>순서가 바뀌어도</b> 값이 같아 알아채지 못해요.</p>
             <p><b>CRC(순환 중복 검사)</b>는 데이터 전체를 하나의 긴 2진수로 보고, 미리 정한 수로 <b>나눈 나머지</b>를 확인값으로 붙여요.
             (보통의 나눗셈과 달리 빼기 대신 XOR을 써요.) 비트 하나만 바뀌어도 나머지가 크게 달라져서, <b>여러 비트가 연속으로 망가진 경우</b>도 잘 찾아내요.
             그래서 인터넷 통신, ZIP·PNG 파일처럼 실제 시스템에서 가장 널리 쓰여요.</p>
         </div>
         <div class="dt-compare">
             <div class="cmp-cell cmp-th">방법</div><div class="cmp-cell cmp-th">계산 방법</div><div class="cmp-cell cmp-th">놓치는 경우</div>
-            <div class="cmp-cell cmp-name">패리티 비트</div><div class="cmp-cell">바이트마다 1의 개수를 짝수로 맞추는 칸 1개</div><div class="cmp-cell">한 바이트에서 비트가 2개(짝수 개) 뒤집힐 때</div>
-            <div class="cmp-cell cmp-name">XOR 체크섬</div><div class="cmp-cell">모든 바이트를 XOR로 접어 확인값 1바이트</div><div class="cmp-cell">다른 바이트의 같은 자리 비트가 함께 뒤집힐 때, 바이트 순서가 바뀔 때</div>
-            <div class="cmp-cell cmp-name">CRC</div><div class="cmp-cell">데이터를 정해진 수로 '나눈 나머지'를 확인값으로 (2진수 나눗셈)</div><div class="cmp-cell">아주 드묾. 연속으로 망가진 비트 묶음도 잘 찾아내서 인터넷·파일에 널리 쓰임</div>
+            <div class="cmp-cell cmp-name">패리티 비트<span class="cmp-sub">글자마다 '1이 짝수 개인가'를 칸 하나로 확인</span></div><div class="cmp-cell">바이트마다 1의 개수를 짝수로 맞추는 칸 1개</div><div class="cmp-cell">한 바이트에서 비트가 2개(짝수 개) 뒤집힐 때</div>
+            <div class="cmp-cell cmp-name">XOR 체크섬<span class="cmp-sub">모든 글자를 겹쳐 만든 '요약 1바이트'로 확인</span></div><div class="cmp-cell">모든 바이트를 XOR로 접어 확인값 1바이트</div><div class="cmp-cell">다른 바이트의 같은 자리 비트가 함께 뒤집힐 때, 바이트 순서가 바뀔 때</div>
+            <div class="cmp-cell cmp-name">CRC<span class="cmp-sub">데이터를 나눈 '나머지'로 확인 (가장 강함)</span></div><div class="cmp-cell">데이터를 정해진 수로 '나눈 나머지'를 확인값으로 (2진수 나눗셈)</div><div class="cmp-cell">아주 드묾. 연속으로 망가진 비트 묶음도 잘 찾아내서 인터넷·파일에 널리 쓰임</div>
         </div>
     """)
 
@@ -273,15 +294,20 @@ DETECTION_STYLE = """
 .dt-row .bits span { width: 40px; height: 50px; line-height: 45px; font-size: 1.4rem; }   /* 비트가 주인공: 크게 */
 .dt-parity-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0; }
 .dt-parity-grid > div { border:2px solid var(--ink);background:var(--paper);padding:12px; }
-.dt-parity-grid strong { color:var(--ink);background:var(--lime-soft); }
+.dt-parity-grid strong { color:var(--ink); }   /* 형광펜 배경 없이 굵은 글씨만 (형광펜은 쓰지 않기로 함) */
 @media(max-width:700px){.dt-parity-grid{grid-template-columns:1fr}}
 .dt-row .bits { margin: 0; }
+.dt-legend { font-size: 0.98rem; color: var(--text); margin: 6px 0 4px; }
+.dt-legend .par-chip, .dt-legend .flip-chip { display: inline-block; width: 22px; text-align: center; font-weight: 700; border: 2px solid var(--ink); margin: 0 2px; }
+.dt-legend .par-chip { background: #D6E8F7; border-color: var(--sky); color: var(--sky); }
+.dt-legend .flip-chip { background: var(--red); color: #FFFFFF; }
 .dt-name { width: 54px; font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); }
 .dt-check { font-family: 'Galmuri11', sans-serif; font-weight: 700; }
-.dt-compare { display: grid; grid-template-columns: 0.8fr 1.6fr 1.6fr; border: 3px solid var(--ink); background: var(--paper); margin-bottom: 8px; }
+.dt-compare { display: grid; grid-template-columns: 1.4fr 1.3fr 1.6fr;   /* 이름 칸에 쉬운 설명이 붙어서 넓히고, 세 칸 줄 수를 비슷하게 맞춰 빈 공간을 줄인다 */ border: 3px solid var(--ink); background: var(--paper); margin-bottom: 8px; }
 .cmp-cell { padding: 8px 12px; border-bottom: 2px solid #C9D9A6; border-right: 2px solid #C9D9A6; font-size: 0.97rem; line-height: 1.6; }
 .cmp-th { background: var(--lime); font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); border-bottom: 3px solid var(--ink); }
 .cmp-name { font-weight: 800; color: var(--ink); background: var(--lime-soft); }
+.cmp-sub { display: block; font-weight: 400; font-size: 0.9rem; color: var(--text); margin-top: 2px; }   /* 방법 이름 아래 쉬운 설명 한 줄 */
 .an-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 8px; }
 .an-step { background: var(--paper); border: 3px solid var(--ink); padding: 10px 12px; }
 .an-step .bt-step-no { display: inline-block; width: 50px; height: 32px; line-height: 28px; margin-bottom: 6px; }
@@ -304,7 +330,8 @@ with crt_frame("pages/detection.py", "DETECTION"):
     show_main_idea()            # ② 핵심 아이디어
     show_parity_explain()       # ③ 패리티 비트란? (자세한 설명)
     show_parity_steps()         # ③-2 글자 B로 따라 해 보기
+    show_xor_explain()          # ③-3 실험 전: XOR 체크섬 (실험 결과보다 설명이 먼저 오게)
     run_detection_lab()         # ④ 직접 실험
-    show_stronger_methods()     # ⑤ 한계와 더 강한 방법
+    show_stronger_methods()     # ⑤ 더 강한 방법(CRC)과 세 방법 비교
     show_real_uses()            # ⑥ 실제 쓰임
     show_sources()              # ⑦ 출처
