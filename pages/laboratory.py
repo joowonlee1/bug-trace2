@@ -41,9 +41,14 @@ BIT_STYLE = """
 .bits.b32 { flex-wrap: nowrap; gap: 6px; }
 .bits.b32 span { width: 27px; height: 38px; line-height: 33px; font-size: 1.1rem; }
 /* 64칸을 16칸씩 4줄로 크게 놓는다. 맨 앞 칸은 '몇 번째 비트부터인지' 줄 번호 */
-.fbits { display: grid; grid-template-columns: 74px repeat(16, 36px); gap: 4px; width: max-content; margin: 8px 0 12px; }
-.fbits .bit { box-sizing: border-box; width: 36px; height: 46px; line-height: 41px; text-align: center; font-size: 1.3rem; border: 2px solid var(--ink);
+/* 칸 너비를 1fr(남는 폭을 똑같이 나눔)로 → 옆에 빈 공간 없이 칸에 꽉 차게 */
+.fbits { display: grid; grid-template-columns: 70px repeat(16, minmax(30px, 1fr)); gap: 4px; width: 100%; margin: 8px 0 12px; }
+.fbits .bit { box-sizing: border-box; height: 46px; line-height: 41px; text-align: center; font-size: 1.3rem; border: 2px solid var(--ink);
               font-family: 'Galmuri11', monospace; font-weight: 700; }
+/* 바로 전 단계와 달라진 칸: 진한 빨강 바탕 + 흰 글자로 눈에 띄게 */
+.fbits .bit.chg { background: var(--red) !important; color: #FFFFFF !important; border-color: #6E2219 !important; animation: bit-pop .6s ease 1; }
+@keyframes bit-pop { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.flegend .chg { background: var(--red); color: #FFFFFF; }
 .fbits .row-no { align-self: center; font-size: 0.85rem; font-weight: 700; color: var(--dim); white-space: nowrap; }
 .fbits-scroll { max-width: 100%; overflow-x: auto; padding: 2px 3px 8px; }
 .fbits .s { background: #F6D5CF; color: var(--red); border-color: var(--red); }
@@ -98,6 +103,10 @@ LAB_FLOAT_STYLE = """
 .float-compare .value { display: block; margin: 6px 0; font-size: 1.08rem; font-weight: 750; overflow-wrap: anywhere; }
 .float-compare small { color: #415946; line-height: 1.45; }
 @media (max-width: 750px) { .float-compare { grid-template-columns: 1fr; } }
+/* 예측 선택지 + 실행 버튼 한 줄: 각 요소가 내용만큼만 차지하고 왼쪽부터 붙는다 */
+.st-key-float_prediction_row { justify-content: flex-start !important; gap: 10px; flex-wrap: wrap; }
+.st-key-float_prediction_row > [data-testid="stElementContainer"] { width: auto !important; flex: 0 0 auto !important; }
+.st-key-float_prediction_row div.stButton { padding-top: 0; }
 </style>
 """
 
@@ -153,7 +162,7 @@ def result_box(kind, text):
     render_html(f"""
         <div class="bt-box {box_class}">
             <div class="bt-box-label">{label}</div>
-            <div>{escape(text)}</div>
+            <div style="white-space: pre-line">{escape(text)}</div>
         </div>
     """)
 
@@ -182,14 +191,18 @@ def bit_string(value, bits):
     return format(value & ((1 << bits) - 1), f"0{bits}b")
 
 
-def show_bits(value, bits, label):
-    """0과 1을 픽셀 칸으로 그린다. 8칸(1바이트)마다 띄우고, 맨 앞 칸(부호 비트)은 빨간 테두리로 표시한다."""
+def show_bits(value, bits, label, previous=None):
+    """0과 1을 픽셀 칸으로 그린다. 8칸(1바이트)마다 띄우고, 맨 앞 칸(부호 비트)은 빨간 테두리로 표시한다.
+    previous: 비교할 값. 주면 그 값과 0·1이 달라진 칸을 빨갛게(flip) 표시한다."""
     text = bit_string(value, bits)
+    before = bit_string(previous, bits) if previous is not None else text
     groups = ""
     for start in range(0, bits, 8):                  # 8칸씩 묶는다
         cells = ""
         for position in range(start, start + 8):
             kind = "one" if text[position] == "1" else "zero"
+            if text[position] != before[position]:
+                kind = "flip"                        # 바뀐 칸 = 빨간 바탕
             if position == 0:
                 kind += " sign"                      # 맨 앞 칸 = 부호 비트
             cells += f'<span class="{kind}">{text[position]}</span>'
@@ -271,15 +284,15 @@ def show_int_result(start, operator, amount, bits):
     stored_result = to_signed(real_result, bits)                          # bits칸에 담았을 때의 값
     # 비트가 주인공: 비트 칸을 먼저 크게 보여 주고, 숫자 계기판은 그 아래에 요약으로 놓는다
     show_bits(start, bits, f"계산 전: {start:,}")
-    show_bits(stored_result, bits, f"계산 후 {bits}비트에 저장된 값: {stored_result:,}")
+    show_bits(stored_result, bits, f"계산 후 {bits}비트에 저장된 값: {stored_result:,} (빨강 = 바뀐 칸)", previous=start)
     show_odometer(start, operator, amount, real_result, stored_result, bits)
 
     if real_result > largest:          # 위쪽 끝을 넘음 → 오버플로
         result_box("diff", f"최댓값 {largest:,}을 넘어서 음수 {stored_result:,}(으)로 넘어갔어요! (정수 오버플로) "
-                           "받아올림이 맨 앞 칸(부호 비트)까지 올라가 1이 되어 음수로 읽혀요.")
+                           "1이 왼쪽 칸으로 계속 넘어가 맨 앞 칸(부호 비트)이 1이 되어 음수로 읽혀요.")
     elif real_result < smallest:       # 아래쪽 끝을 넘음 → 정수 언더플로
         result_box("diff", f"최솟값 {smallest:,}보다 작아져서 양수 {stored_result:,}(으)로 넘어갔어요! (정수 언더플로) "
-                           "빌림 때문에 맨 앞 칸(부호 비트)이 0이 되어 양수로 읽혀요.")
+                           "왼쪽 칸에서 1을 계속 가져오다 맨 앞 칸(부호 비트)이 0이 되어 양수로 읽혀요.")
     else:
         result_box("same", f"{bits}비트 범위 안이라 수학 계산과 같아요. 위의 예시 버튼을 눌러 보세요.")
 
@@ -296,6 +309,9 @@ def run_int_overflow_lab():
     """32비트 정수에 더하거나 빼 보며 오버플로·언더플로와 2의 보수를 확인한다."""
     lab_title("가장 큰 수에 1을 더하면? 가장 작은 수에서 1을 빼면?",
               "가정: 부호 있는 32비트 정수에서, 칸 밖으로 넘친 비트를 그냥 버리는 경우 (조회수·2038년 문제와 같은 조건)")
+    # 실험의 칸 수를 32비트로 정한 이유를 화면에서도 밝힌다 (실제 사례와 같은 조건으로 실험하기 위해)
+    render_html('<div class="lab-guide"><b>왜 32비트?</b> 실제 사례인 강남스타일 조회수, 보잉 787, 2038년 문제가 '
+                "모두 '부호 있는 32비트 정수'에서 일어났기 때문이에요.</div>")
     render_html(ODOMETER_STYLE)
     # 처음 들어왔을 때의 값 (버튼이 session_state로 값을 바꾸므로, 입력칸에는 value=를 따로 주지 않는다)
     bits = INT_BITS
@@ -325,8 +341,8 @@ CLOCK_TYPES = {
 
 # 살펴볼 순간: 이름 → 그 시계가 담을 수 있는 마지막 초
 MOMENTS = {
-    "2038-01-19 03:14:07 UTC (부호 있는 32비트의 끝)": (1 << 31) - 1,
-    "2106-02-07 06:28:15 UTC (부호 없는 32비트의 끝)": (1 << 32) - 1,
+    "2038년 1월 19일 · 옛 방식 시계가 셀 수 있는 마지막 1초": (1 << 31) - 1,
+    "2106년 2월 7일 · 부호 없는 32비트 시계가 셀 수 있는 마지막 1초": (1 << 32) - 1,
 }
 
 
@@ -404,6 +420,10 @@ def run_y2038_lab():
     seconds = MOMENTS[moment_name] + offset              # 실제로 흐른 초
 
     render_html(f'<div class="cal-now">⏱️ 실제로 흐른 시간: {seconds:,}초 → {escape(seconds_to_text(seconds))}</div>')
+    # 비트가 주인공: 32비트 칸을 달력보다 먼저 보여 준다 → 비트가 바뀌는 순간 아래 달력이 어떻게 되는지 이어서 본다
+    # 1초 전과 비교해서 바뀐 칸을 빨갛게: 경계를 넘는 순간 32칸이 한꺼번에 뒤집히는 게 보인다
+    show_bits(to_signed(seconds, 32), 32, "부호 있는 32비트 칸에 담긴 비트 (빨간 테두리 = 부호 비트, 빨강 = 1초 전과 달라진 칸)",
+              previous=to_signed(seconds - 1, 32))
     cards = ""
     broken = []                                          # 날짜가 틀어진 시계 이름 모음
     for clock_name, store in CLOCK_TYPES.items():
@@ -412,7 +432,6 @@ def run_y2038_lab():
             broken.append(clock_name)
         cards += calendar_card_html(clock_name, seconds, stored)
     render_html('<div class="cal-grid">' + cards + '</div>')
-    show_bits(to_signed(seconds, 32), 32, "32비트 칸에 담긴 비트 (빨간 테두리 = 부호 비트)")
 
     if broken:
         result_box("diff", f"{', '.join(broken)} 시계가 끝을 넘어 엉뚱한 날짜로 돌아갔어요!")
@@ -434,19 +453,24 @@ def float_bits(number):
     return format(raw, "064b")
 
 
-def show_float_bits(number, label):
-    """64비트를 부호(1칸, 빨강)·지수(11칸, 파랑)·가수(52칸, 라임)로 색을 나눠 그린다."""
+def show_float_bits(number, label, previous=None):
+    """64비트를 부호(1칸, 빨강)·지수(11칸, 파랑)·가수(52칸, 라임)로 색을 나눠 그린다.
+    previous: 비교할 바로 전 값. 주면 그 값과 달라진 칸을 빨갛게 표시한다."""
     text = float_bits(number)
+    before = float_bits(previous) if previous is not None else text
     cells = ""
     for position, bit in enumerate(text):
         if position % 16 == 0:                       # 16칸마다 새 줄: 줄 앞에 '1~16번'처럼 번호를 붙인다
             cells += f'<span class="row-no">{position + 1}~{position + 16}번</span>'
         kind = "s" if position == 0 else ("e" if position <= 11 else "m")
+        if bit != before[position]:                  # 전 값과 0·1이 바뀐 칸
+            kind += " chg"
         cells += f'<span class="bit {kind}">{bit}</span>'
+    changed_note = '<span><b class="chg">빨강</b> 방금 바뀐 칸</span>' if previous is not None else ""
     render_html(f"""
         <div class="bits-label">{escape(label)}</div>
         <div class="flegend"><span><b class="s">부호 1칸</b> 0=양수</span><span><b class="e">지수 11칸</b> 2의 몇 제곱인지</span>
-        <span><b class="m">가수 52칸</b> 유효숫자</span></div>
+        <span><b class="m">가수 52칸</b> 유효숫자</span>{changed_note}</div>
         <div class="fbits-scroll"><div class="fbits">{cells}</div></div>
     """)
 
@@ -479,26 +503,39 @@ def show_float_result(first_text, second_text):
         computer_result = first_number + second_number                # 컴퓨터 방식(2진수) 계산
         exact_result = Decimal(first_text) + Decimal(second_text)     # 10진수로 정확히 계산
     except (ValueError, ArithmeticError, OverflowError):
-        result_box("input", "계산할 수 있는 숫자를 입력해 주세요. 예) 0.1")
+        result_box("input", "계산할 수 있는 숫자를 입력해 주세요.\n예) 0.1")
         return
 
     # !r (repr): 숫자를 줄이지 않고 컴퓨터가 가진 값 그대로 보여 준다.
-    st.code(f"컴퓨터 계산 (float)   : {first_text} + {second_text} = {readable_number(repr(computer_result), in_code=True)}\n"
-            f"정확한 계산 (Decimal) : {first_text} + {second_text} = {exact_result}")
+    st.code(f"컴퓨터 계산 (2진수)  : {first_text} + {second_text} = {readable_number(repr(computer_result), in_code=True)}\n"
+            f"정확한 계산 (10진수) : {first_text} + {second_text} = {exact_result}")
     if Decimal(computer_result) == exact_result:
-        result_box("same", "이번 계산 결과는 정확한 10진수 값과 일치해요. (예: 0.5 + 0.25)")
-    elif computer_result == float(exact_result):
+        result_box("same", "이번 계산 결과는 정확한 10진수 값과 일치해요. 정수나 0.5·0.25처럼 2진수로 딱 떨어지는 수는 오차가 없어요.\n"
+                           "하지만 항상 같은 건 아니에요. 0.1처럼 2진수로 끝없이 이어지는 수나, "
+                           "9007199254740993처럼 53비트를 넘는 아주 큰 정수를 넣어 보세요.")
+    elif Decimal(repr(computer_result)) == exact_result:   # 화면에 보이는 컴퓨터 결과가 정확한 값과 같을 때만 "겉보기엔 같다"
         result_box("note", "출력은 자연스러워 보여도 내부 값은 정확한 10진수 결과와 달라요. 저장·계산 중 반올림이 일어날 수 있어요.")
     else:
         result_box("diff", f"두 결과가 달라요! 컴퓨터 계산 결과({readable_number(repr(computer_result))})는 정확한 값({exact_result})과 다른 수예요.")
 
     # Decimal(float값): 컴퓨터 안에 '실제로' 저장된 값을 끝까지 보여 준다.
-    st.markdown("**컴퓨터 안에 실제로 저장된 값** (저장하는 순간 이미 조금 달라요)")
+    # 입력한 수와 저장된 수가 똑같은지 확인해서, 안내 문장을 입력에 맞게 바꾼다 (항상 같은 문장을 쓰면 틀린 설명이 된다)
+    first_exact = Decimal(first_number) == Decimal(first_text)
+    second_exact = Decimal(second_number) == Decimal(second_text)
+    if first_exact and second_exact:
+        stored_note = "(이번 두 수는 2진수로 딱 떨어져서 그대로 저장됐어요)"
+    else:
+        stored_note = "(저장하는 순간 이미 조금 달라져요)"
+    st.markdown(f"**컴퓨터 안에 실제로 저장된 값** {stored_note}")
     st.code(f"{first_text} → {Decimal(first_number)}\n"
             f"{second_text} → {Decimal(second_number)}")
     show_float_bits(first_number, f"'{first_text}'을(를) 저장한 64비트 (IEEE 754)")
-    result_box("note", "0.1의 가수 칸을 보면 1001 1001 …이 되풀이되다가 52칸 끝에서 잘려 반올림돼요. "
-                       "끝없는 2진 소수를 52칸에 담을 수 없어서 생기는 오차예요.")
+    if first_exact:
+        result_box("note", f"{first_text}은(는) 2진수로 딱 떨어지는 수라서 가수 칸 52칸 안에 오차 없이 들어가요. "
+                           "0.1을 넣으면 가수 칸이 1001 1001 …로 되풀이되다가 잘리는 모습을 볼 수 있어요.")
+    else:
+        result_box("note", f"{first_text}은(는) 2진수로 끝없이 이어지거나 53비트를 넘는 수라서, 가수 칸 52칸 끝에서 잘려 반올림돼요. "
+                           "이렇게 칸 수가 모자라서 생기는 오차예요.")
 
 
 def show_float_error_chart():
@@ -510,6 +547,9 @@ def show_float_error_chart():
         total += 0.1                                   # 컴퓨터 방식으로 0.1을 더한다
         exact = Decimal(count) / Decimal(10)           # 정확한 값 (count × 0.1)
         errors.append(float(abs(Decimal(total) - exact)))   # 둘의 차이 = 오차
+    # 그래프를 읽는 법을 먼저 알려 준다
+    render_html('<div class="lab-guide"><b>그래프 읽는 법</b> · 가로 = 0.1을 더한 횟수 · 세로 = 컴퓨터 결과와 정확한 값의 차이(오차) · '
+                '선이 위로 갈수록 오차가 커진 거예요. 반올림이 위아래로 일어나서 오차가 늘었다 줄었다 하지만, 많이 더할수록 커지는 경향이 있어요.</div>')
     draw_line_chart(errors)
     st.caption(f"0.1을 {repeat_count}번 더한 결과: {readable_number(repr(total))} (정확한 값: {Decimal(repeat_count) / Decimal(10)})")
 
@@ -531,9 +571,10 @@ def draw_line_chart(values):
             <line x1="{margin}" y1="{height - margin}" x2="{width - margin}" y2="{height - margin}" stroke="#1F4D25" stroke-width="3"/>
             <line x1="{margin}" y1="{margin}" x2="{margin}" y2="{height - margin}" stroke="#1F4D25" stroke-width="3"/>
             <polyline points="{' '.join(points)}" fill="none" stroke="#A23A2E" stroke-width="3" stroke-linejoin="bevel"/>
-            <text x="{margin + 4}" y="{margin - 8}" font-size="13" fill="#1F4D25">최대 오차 {readable_number(format(largest, '.1e'))}</text>
-            <text x="{margin}" y="{height - 8}" font-size="13" fill="#1F4D25">1번</text>
-            <text x="{width - margin}" y="{height - 8}" font-size="13" fill="#1F4D25" text-anchor="end">{len(values)}번 더함</text>
+            <text x="{margin + 6}" y="{margin - 8}" font-size="15" font-weight="700" fill="#1F4D25">↑ 오차 (가장 클 때 {readable_number(format(largest, '.1e'))})</text>
+            <text x="{margin}" y="{height - 6}" font-size="15" fill="#1F4D25">1번</text>
+            <text x="{width / 2}" y="{height - 6}" font-size="15" font-weight="700" fill="#1F4D25" text-anchor="middle">더한 횟수 →</text>
+            <text x="{width - margin}" y="{height - 6}" font-size="15" fill="#1F4D25" text-anchor="end">{len(values)}번</text>
         </svg>
     """)
 
@@ -549,15 +590,17 @@ def show_float_prediction():
     st.markdown("#### 01 · 먼저 결과를 예상해 보세요")
     st.caption("일반 계산기에는 0.3으로 보이지만, Python으로 계산하면 어떨까요?")
     options = ["0.3", "0.30000000000000004", "계산할 수 없음"]
-    choice = st.radio(
-        "0.1 + 0.2의 Python 출력 결과는?", options,
-        key="float_prediction_choice", index=None, horizontal=True,
-        label_visibility="collapsed",
-        on_change=reset_float_prediction,
-    )
-    if st.button("계산 실행 · 정답 확인", key="float_prediction_reveal", disabled=choice is None):
-        st.session_state["float_prediction_shown"] = True
-        st.session_state["float_prediction_answer"] = choice
+    # 선택지 3개와 '계산 실행' 버튼을 한 줄에 놓아서 오른쪽 빈 공간을 쓴다
+    with st.container(key="float_prediction_row", horizontal=True, vertical_alignment="center"):
+        choice = st.radio(
+            "0.1 + 0.2의 Python 출력 결과는?", options,
+            key="float_prediction_choice", index=None, horizontal=True,
+            label_visibility="collapsed",
+            on_change=reset_float_prediction,
+        )
+        if st.button("계산 실행 · 정답 확인", key="float_prediction_reveal", type="primary", disabled=choice is None):
+            st.session_state["float_prediction_shown"] = True
+            st.session_state["float_prediction_answer"] = choice
     if st.session_state.get("float_prediction_shown", False):
         answer = st.session_state.get("float_prediction_answer")
         if answer == options[1]:
@@ -613,14 +656,21 @@ def halving_steps(start):
 # 언더플로 단계 표시 디자인: 3단계 칸(지금 단계만 켜짐) + 남은 유효 비트 53칸(하나씩 꺼짐)
 UNDERFLOW_STYLE = """
 <style>
-.uf-stages { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 8px; margin: 8px 0 10px; }
-.uf-stage { border: 3px solid #9DB98F; background: #F4F7E9; color: #7C8F78; text-align: center; padding: 8px 6px; font-family: 'Galmuri11', sans-serif; font-weight: 700; }
-.uf-stage small { display: block; font-family: 'Noto Sans KR', sans-serif; font-weight: 500; font-size: 0.82rem; margin-top: 2px; }
+/* 64비트 그림 오른쪽 좁은 칸에 들어가도록 단계 3개를 세로로 쌓는다 */
+.uf-stages { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 8px; }
+.uf-arrow { text-align: center; line-height: 1; }
+/* 지금 값: 작은 이름 아래에 숫자 한 줄. 유효숫자 5자리로 줄이고 nowrap으로 '× 10⁻³⁰⁸'이 다음 줄로 떨어지지 않게 */
+.uf-value small { display: block; font-size: 0.85rem; font-weight: 700; color: var(--dim); }
+.uf-value span { white-space: nowrap; font-size: 1.15rem; }
+.uf-value { font-family: 'SupFix', 'Noto Sans KR', sans-serif; font-weight: 800; color: var(--ink); font-size: 1rem; margin-bottom: 6px; }
+.uf-stage { border: 3px solid #9DB98F; background: #F4F7E9; color: #7C8F78; text-align: center; padding: 5px 6px; font-family: 'Galmuri11', sans-serif; font-weight: 700; }
+.uf-stage small { display: block; font-family: 'SupFix', 'Noto Sans KR', sans-serif; font-weight: 500; font-size: 0.82rem; margin-top: 2px; }
 .uf-stage.on { border-color: var(--ink); background: var(--lime); color: var(--ink); }
 .uf-stage.on.zero { border-color: var(--red); background: #FBE7DF; color: var(--red); }
 .uf-arrow { font-weight: 800; color: var(--ink); }
-.uf-precision { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 2px; }
-.uf-precision i { width: 14px; height: 18px; border: 2px solid var(--ink); background: var(--lime); }
+/* 남은 유효 비트 53칸: 한 줄 막대로 (칸 너비를 나눠서 두 줄로 넘치지 않게) */
+.uf-precision { display: grid; grid-template-columns: repeat(53, 1fr); gap: 1px; margin: 4px 0 2px; }
+.uf-precision i { height: 18px; border: 1px solid var(--ink); background: var(--lime); }
 .uf-precision i.off { background: transparent; border-color: #B9C5AA; }
 .uf-precision-label { font-family: 'Galmuri11', sans-serif; font-weight: 700; color: var(--ink); font-size: 0.95rem; margin-top: 4px; }
 </style>
@@ -633,9 +683,10 @@ def show_underflow_stage(value, exponent, precision):
     on = lambda name: " on" if stage == name else ""                 # 지금 단계에만 'on' 이름표를 붙인다
     blocks = "".join('<i></i>' if index < precision else '<i class="off"></i>' for index in range(53))
     render_html(UNDERFLOW_STYLE + f"""
+        <div class="uf-value"><small>지금 값</small><span>{escape(readable_number(format(value, '.4e')))}</span></div>
         <div class="uf-stages">
-            <div class="uf-stage{on('normal')}">① 정상 수<small>53비트 정밀도 그대로</small></div><div class="uf-arrow">▶</div>
-            <div class="uf-stage{on('subnormal')}">② 비정규 수<small>지수 칸이 바닥, 정밀도가 줄어듦</small></div><div class="uf-arrow">▶</div>
+            <div class="uf-stage{on('normal')}">① 정상 수<small>53비트 정밀도 그대로</small></div><div class="uf-arrow">▼</div>
+            <div class="uf-stage{on('subnormal')}">② 비정규 수<small>지수 칸이 바닥, 정밀도가 줄어듦</small></div><div class="uf-arrow">▼</div>
             <div class="uf-stage zero{on('zero')}">③ 0이 되어 사라짐<small>더 담을 칸이 없음</small></div>
         </div>
         <div class="uf-precision-label">남은 유효 비트 {precision}칸 / 53칸</div>
@@ -646,21 +697,25 @@ def show_underflow_stage(value, exponent, precision):
 def run_float_underflow_lab():
     """아주 작은 수를 계속 반으로 나누며 정상 수 → 비정규 수 → 0이 되는 과정을 비트로 확인한다."""
     lab_title("아주 작은 수를 계속 반으로 나누면?",
-              f"{readable_number(UNDERFLOW_START)}을(를) 2로 계속 나눠요. 슬라이더로 나눈 횟수를 바꾸며 지수 칸(파랑)과 가수 칸(라임)을 보세요.")
+              f"{readable_number(UNDERFLOW_START)}에서 시작해 2로 계속 나눠요. 이 수는 정상 수의 바닥(약 2.2 × 10⁻³⁰⁸) 바로 위라서, "
+              "몇십 번만 나눠도 바닥에 닿아요. 슬라이더를 움직이며 빨갛게 바뀌는 칸을 보세요.")
     values = halving_steps(UNDERFLOW_START)
     first_subnormal = next(i for i, v in enumerate(values) if float_parts(v)[0] == 0)   # 처음으로 지수 칸이 모두 0이 된 횟수
     count = st.slider("2로 나눈 횟수", 0, len(values) - 1, first_subnormal - 1, key="uf_count")
     value = values[count]
-    exponent, mantissa, state = float_parts(value)
+    exponent, mantissa, _ = float_parts(value)          # _ = 상태 이름 (여기서는 단계 칸으로 보여 줘서 쓰지 않는다)
 
     # 정상 수는 가수 52칸 + 숨은 1칸 = 53비트의 유효숫자, 비정규 수는 가수 칸에서 실제로 쓰는 비트만 남는다
     precision = 53 if exponent else mantissa.bit_length()
-    show_underflow_stage(value, exponent, precision)
-    st.code(f"{count}번 나눔 → 값 = {readable_number(repr(value), in_code=True)}\n"
-            f"상태          : {state}\n"
-            f"지수 칸 값    : {exponent}  (0이 되면 더 작은 지수를 나타낼 수 없음)")
-    st.caption("읽는 법: 10⁻³⁰⁸은 '10의 -308제곱'이에요. 소수점 아래로 0이 307개 이어진 뒤에야 1이 나오는, 아주 작은 수예요.")
-    show_float_bits(value, f"{count}번 나눈 값의 64비트")
+    # 슬라이더 바로 아래에 '64비트 그림(왼쪽) + 지금 단계(오른쪽)'를 나란히 놓아 한 화면에서 함께 보이게 한다
+    bits_column, stage_column = st.columns([2.6, 1], vertical_alignment="top")
+    with bits_column:
+        previous = values[count - 1] if count > 0 else None          # 바로 전(한 번 덜 나눈) 값과 비교
+        show_float_bits(value, f"{count}번 나눈 값의 64비트 · 지수 칸 값 {exponent}", previous)
+    with stage_column:
+        show_underflow_stage(value, exponent, precision)
+    st.caption("읽는 법: 10⁻³⁰⁸은 '10의 -308제곱'이에요. 소수점 아래로 0이 307개 이어진 뒤에야 1이 나오는, 아주 작은 수예요. "
+               "지수 칸 값이 0이 되면 더 작은 지수를 나타낼 수 없어요.")
 
     st.code(f"{first_subnormal - 1:>3}번 : 마지막 정상 수   {readable_number(repr(values[first_subnormal - 1]), in_code=True)}\n"
             f"{first_subnormal:>3}번 : 첫 비정규 수     {readable_number(repr(values[first_subnormal]), in_code=True)}\n"
