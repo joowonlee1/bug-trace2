@@ -392,7 +392,7 @@ def apply_style():
         .win-title { font-family: 'Press Start 2P', monospace; font-size: 1.05rem; color: var(--ink); letter-spacing: 1px; }
         .win-path { flex: 1; min-width: 0; font-family: 'Galmuri11', monospace; font-weight: 700; color: var(--ink); font-size: 0.95rem; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         /* 제목과 버튼을 동일한 높이의 한 줄로 정렬한다. */
-        .st-key-crt_titlebar [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: minmax(0, 1fr) 132px !important; gap: 0 !important; align-items: center !important; }
+        .st-key-crt_titlebar [data-testid="stHorizontalBlock"]:not(.st-key-win_btns) { display: grid !important; grid-template-columns: minmax(0, 1fr) 132px !important; gap: 0 !important; align-items: center !important; }   /* :not = 창 버튼 상자는 빼고 제목 줄에만 2칸 격자 적용 (버튼 3개가 겹치지 않게) */
         .st-key-crt_titlebar [data-testid="stColumn"] { min-width: 0 !important; width: 100% !important; }
         .st-key-crt_titlebar [data-testid="stColumn"] > div { min-width: 0 !important; }
         .st-key-crt_titlebar .win-bar { height: 36px; min-height: 36px; overflow: visible; padding: 0 8px 0 0; border-bottom: 0; justify-content: flex-start; gap: 12px; }
