@@ -210,6 +210,8 @@ def run_detection_lab():
         text_column, first_column, second_column = st.columns([2, 1, 1], vertical_alignment="bottom")
         message = text_column.text_input("보낼 글자 (영어·숫자, 8글자까지)", "BUG", max_chars=8, key="dt_text")
         data = message.encode("ascii", errors="ignore")      # 글자 → 바이트 (영어·숫자만 1글자 = 1바이트)
+        if len(data) < len(message):   # errors="ignore"가 한글 등을 조용히 버려서, 빠진 글자가 있으면 알려 준다
+            st.warning("한글·특수문자는 1바이트(8비트)로 바꿀 수 없어서 빼고 보냈어요. 영어·숫자만 실험할 수 있어요.")
         if not data:
             st.info("영어나 숫자를 입력해 주세요.  \n예) BUG")
             return
