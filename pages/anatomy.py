@@ -543,9 +543,12 @@ def group_steps(steps):
     예) BUG-002의 #01과 #03이 둘 다 'Python 공식 문서' → 카드 하나에 두 문장"""
     groups = []
     for step in steps:
-        same_source = groups and groups[-1][-1]["source"] == step["source"] and groups[-1][-1]["basis"] == step["basis"]
-        if same_source and step["source"] is not None:
-            groups[-1].append(step)              # 앞 묶음과 같은 문서 → 그 묶음에 붙인다
+        same_group = None
+        for group in groups:                     # 앞에서 만든 묶음을 하나씩 확인한다
+            if group[0]["source"] == step["source"] and group[0]["basis"] == step["basis"]:
+                same_group = group               # 같은 문서로 만든 묶음을 찾으면 기억해 둔다
+        if same_group and step["source"] is not None:
+            same_group.append(step)              # 같은 문서 → 그 묶음에 붙인다
         else:
             groups.append([step])                # 처음 나온 문서 → 새 묶음을 시작한다
     return groups
